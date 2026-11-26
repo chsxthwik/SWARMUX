@@ -53,7 +53,7 @@
     const head = el('div', 'ph');
     const dot = el('span', 'dot');
     const name = el('span', 'nm', esc(prof ? prof.name : 'Shell'));
-    const tag = el('span', 'tag', 'agent'); tag.hidden = !(prof && prof.kind === 'agent');
+    const tag = el('span', 'tag', ''); tag.hidden = true;
     const bc = el('span', 'bc', 'broadcast'); bc.hidden = true;
     const cwdEl = el('span', 'cwd', '');
     const acts = el('div', 'acts');
@@ -111,7 +111,7 @@
     safeFit(p);
     const rs = p.restore; p.restore = null;
     if (rs && rs.buffer) p.term.write(rs.buffer + '\r\n\x1b[2m\u2500\u2500 restored ' + new Date(rs.at || Date.now()).toLocaleString() + ' \u2500\u2500 scroll up for earlier output\x1b[0m' + '\r\n'.repeat(Math.max(1, p.term.rows - 1)));
-    const r = await H.create({ id: p.id, profileId: p.profileId, cwd: p.cwd, cols: p.term.cols, rows: p.term.rows, resume: !!rs });
+    const r = await H.create({ id: p.id, profileId: p.profileId, cwd: p.cwd, cols: p.term.cols, rows: p.term.rows });
     if (!r || !r.ok) { p.term.write(`\r\n\x1b[31mCould not start: ${(r && r.error) || 'unknown error'}\x1b[0m\r\n`); setState(p, 'exit'); return; }
     p.alive = true; p.bornAt = Date.now(); p.cwd = r.cwd; p.cwdEl.textContent = r.cwd; p.cwdEl.title = r.cwd;
     H.resize(p.id, p.term.cols, p.term.rows);

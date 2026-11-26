@@ -2,18 +2,17 @@
 
 # Swarmux
 
-A real Windows terminal for running many coding agents side by side. Tabs, split panes, agent presets and alerts when an agent finishes. Light, fast and open source.
+A real Windows terminal for running many coding agents side by side. Tabs, split panes, session restore and alerts when a pane finishes. Light, fast and open source.
 
 ## Features
 
 - Real terminals through Windows ConPTY: PowerShell 7, Windows PowerShell, Command Prompt, WSL and Git Bash, with colours, vim, htop and full-screen apps.
-- Agent presets: Claude Code, Codex, OpenCode and Gemini CLI appear in the new-tab menu when they are installed, on Windows or inside any WSL distribution (found through your login shell).
 - A profile menu like Windows Terminal: every shell and WSL distribution with `Ctrl+Shift+1…9`, Settings (`Ctrl+,`) and a command palette (`Ctrl+Shift+P`).
 - Opens with Windows (on by default, switch it off in Settings), and saves your session on shutdown, sleep and lock, so a restart brings everything back.
 - Tabs and split panes; drag a divider to resize, double-click it to even it out.
-- Each pane shows its state: working (amber), finished (green), bell (red), ended (hollow). When an agent goes quiet after working and you are looking elsewhere, you get a Windows notification and the taskbar flashes.
+- Each pane shows its state: working (amber), finished (green), bell (red), ended (hollow). When a pane goes quiet after working and you are looking elsewhere, you get a Windows notification and the taskbar flashes.
 - Broadcast mode types into every pane of a tab at once.
-- Picks up where you left off: tabs, splits, shells, folders and recent output come back on the next start, and Claude Code, Codex and OpenCode panes resume their last conversation in that folder.
+- Picks up where you left off: tabs, splits, shells, folders and recent output come back on the next start.
 - GPU rendering, 20,000 lines of scrollback per pane, and output batched every 8 ms, so long sessions stay smooth.
 
 ## Install

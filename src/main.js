@@ -15,7 +15,7 @@ const STATE = () => path.join(app.getPath('userData'), 'state.json');
 const ptys = new Map(); // id -> { proc, buf, timer, owner }
 let win = null;
 
-// ---------- profiles: shells and agents found on this PC ----------
+// ---------- profiles: the shells and WSL distributions on this PC ----------
 function which(cmd) {
   try { return execFileSync('where.exe', [cmd], { encoding: 'utf8', windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).split(/\r?\n/)[0].trim() || null; }
   catch { return null; }
@@ -32,31 +32,9 @@ function detectProfiles() {
     try { distros = execFileSync('wsl.exe', ['-l', '-q'], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }).toString('utf16le').replace(/\0/g, '').split(/\r?\n/).map(x => x.trim()).filter(x => x && !/^docker-desktop/i.test(x)); } catch {}
     if (!distros.length) out.push({ id: 'wsl', name: 'WSL', kind: 'shell', file: 'wsl.exe', args: ['~'] });
     for (const d of distros) out.push({ id: 'wsl:' + d, name: d.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), kind: 'shell', file: 'wsl.exe', args: ['-d', d, '--cd', '~'] });
-    // Agents installed inside each distribution run there, in your Linux home.
-    for (const d of distros) {
-      const LOGIN = 'S=$(getent passwd "$(id -un)" | cut -d: -f7); S=${S:-/bin/bash}; exec "$S" -lic ';
-      let found = '';
-      try { found = execFileSync('wsl.exe', ['-d', d, '--exec', 'sh', '-c', LOGIN + `'for c in claude codex opencode gemini; do command -v "$c" >/dev/null 2>&1 && echo "$c"; done' 2>/dev/null`], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], timeout: 15000, encoding: 'utf8' }); } catch (e) { found = (e.stdout || '').toString(); }
-      const nice = d.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      const AG = { claude: ['Claude Code', 'claude --continue || claude'], codex: ['Codex', 'codex resume --last || codex'], opencode: ['OpenCode', 'opencode --continue || opencode'], gemini: ['Gemini CLI', 'gemini'] };
-      for (const c of found.split(/\s+/).filter(x => AG[x])) {
-        const run = (cmd) => ['-d', d, '--cd', '~', '--exec', 'sh', '-c', LOGIN + `'${cmd}; exec "$SHELL" -l'`];
-        out.push({ id: `${c}@${d}`, name: `${AG[c][0]} (${nice})`, kind: 'agent', file: 'wsl.exe', args: run(c), resumeArgs: run(AG[c][1]) });
-      }
-    }
   }
   const gitBash = ['C:\\Program Files\\Git\\bin\\bash.exe', 'C:\\Program Files (x86)\\Git\\bin\\bash.exe'].find(p => fs.existsSync(p));
   if (gitBash) out.push({ id: 'gitbash', name: 'Git Bash', kind: 'shell', file: gitBash, args: ['--login', '-i'] });
-  const host = pwsh ? { file: pwsh, args: ['-NoLogo', '-NoExit', '-Command'] } : { file: 'powershell.exe', args: ['-NoLogo', '-NoExit', '-Command'] };
-  // resume: the command that picks the agent's last conversation in this folder back up, falling back to a new one.
-  for (const [id, name, cmd, resume] of [
-    ['claude', 'Claude Code', 'claude', 'claude --continue; if ($LASTEXITCODE) { claude }'],
-    ['codex', 'Codex', 'codex', 'codex resume --last; if ($LASTEXITCODE) { codex }'],
-    ['opencode', 'OpenCode', 'opencode', 'opencode --continue; if ($LASTEXITCODE) { opencode }'],
-    ['gemini', 'Gemini CLI', 'gemini', 'gemini'],
-  ]) {
-    if (which(cmd) || which(cmd + '.cmd') || which(cmd + '.exe')) out.push({ id, name, kind: 'agent', file: host.file, args: [...host.args, cmd], resumeArgs: [...host.args, resume] });
-  }
   return out;
 }
 let PROFILES = [];
@@ -101,13 +79,13 @@ function killPty(id) {
   clearTimeout(p.timer); ptys.delete(id);
   try { p.proc.kill(); } catch {}
 }
-ipcMain.handle('pty:create', (e, { id, profileId, cwd, cols, rows, resume }) => {
+ipcMain.handle('pty:create', (e, { id, profileId, cwd, cols, rows }) => {
   const prof = PROFILES.find(p => p.id === profileId) || PROFILES[0];
   const dir = cwd && fs.existsSync(cwd) ? cwd : os.homedir();
   const env = { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor', TERM_PROGRAM: 'SWARMUX' };
   let proc;
   try {
-    proc = pty.spawn(prof.file, resume && prof.resumeArgs ? prof.resumeArgs : prof.args, { name: 'xterm-256color', cols: Math.max(2, cols | 0), rows: Math.max(2, rows | 0), cwd: dir, env, useConpty: true });
+    proc = pty.spawn(prof.file, prof.args, { name: 'xterm-256color', cols: Math.max(2, cols | 0), rows: Math.max(2, rows | 0), cwd: dir, env, useConpty: true });
   } catch (err) { return { ok: false, error: String(err.message || err) }; }
   const sender = e.sender;
   const entry = { proc, buf: '', timer: null };
@@ -147,7 +125,7 @@ app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   PROFILES = detectProfiles();
-  // Opens with Windows by default (turn off in Settings), so a restart brings your tabs and agents back.
+  // Opens with Windows by default (turn off in Settings), so a restart brings your tabs back.
   const st = readState();
   if (app.isPackaged && !st.startupSet) { app.setLoginItemSettings({ openAtLogin: true, args: ['--restore'] }); st.startupSet = true; st.startup = true; writeState(st); }
   createWindow();

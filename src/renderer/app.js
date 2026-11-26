@@ -59,7 +59,7 @@
     const acts = el('div', 'acts');
     const btn = (icon, title, fn) => { const b = el('button', 'ib', icon); b.title = title; b.setAttribute('aria-label', title); b.onclick = (e) => { e.stopPropagation(); fn(); }; return b; };
     acts.append(btn(ICON.right, 'Split right (Ctrl+Shift+D)', () => split(id, 'row')), btn(ICON.down, 'Split down (Ctrl+Shift+E)', () => split(id, 'col')), btn(ICON.zoom, 'Zoom (Ctrl+Shift+Z)', () => toggleZoom()), btn(ICON.close, 'Close pane (Ctrl+Shift+W)', () => closePane(id)));
-    head.append(dot, name, tag, bc, cwdEl, acts);
+    head.append(el('span', 'pi', picon(prof)), name, dot, tag, bc, cwdEl, acts);
     const body = el('div', 'term');
     root.append(head, body);
 
@@ -88,7 +88,7 @@
     const setCwd = (d) => { if (!d) return; p.cwd = d; p.cwdEl.textContent = d; p.cwdEl.title = d; save(); };
     term.parser.registerOscHandler(7, (data) => { try { const u = new URL(data); let d = decodeURIComponent(u.pathname); if (/^\/[A-Za-z]:/.test(d)) d = d.slice(1).replace(/\//g, '\\'); setCwd(d); } catch {} return true; });
     term.parser.registerOscHandler(9, (data) => { if (data.startsWith('9;')) setCwd(data.slice(2).replace(/^"|"$/g, '')); return false; });
-    term.onTitleChange((t) => { if (t) { t = /^[A-Za-z]:\\.*\.exe$/i.test(t) ? t.split('\\').pop().replace(/\.exe$/i, '') : t; p.name.textContent = t.length > 60 ? t.slice(0, 60) + '…' : t; const tb = tabOf(p); if (tb && !tb.custom && tb.focus === p.id) renderTabs(); } });
+    term.onTitleChange((t) => { if (t && !/(^[A-Za-z]:\\.*\.exe$|^(wsl|powershell|cmd|pwsh|bash)(\.exe)?$)/i.test(t)) { p.name.textContent = t.length > 60 ? t.slice(0, 60) + '…' : t; const tb = tabOf(p); if (tb && !tb.custom && tb.focus === p.id) renderTabs(); } });
     term.attachCustomKeyEventHandler((e) => handleTermKey(e, p));
     root.addEventListener('contextmenu', (e) => { e.preventDefault(); if (term.hasSelection()) { H.copy(term.getSelection()); term.clearSelection(); } else { const t = H.paste(); if (t) term.paste(t); } });
     return p;
@@ -365,7 +365,11 @@
       const box = $('#side'); box.hidden = !sideOn; document.body.classList.toggle('side-on', sideOn);
       if (!sideOn) return;
       const list = $('#sideList'); list.textContent = '';
-      const all = []; tabs.forEach((t) => panesIn(t.root).forEach((p) => all.push({ t, p })));
+      const q = ($('#sideQ').value || '').toLowerCase().trim();
+      const all = []; tabs.forEach((t) => panesIn(t.root).forEach((p) => { if (!q || (p.name.textContent + ' ' + t.title + ' ' + (p.cwd || '')).toLowerCase().includes(q)) all.push({ t, p }); }));
+      const cnt = (st) => all.filter((x) => (x.p.state === 'bell' ? 'blocked' : x.p.state) === st).length;
+      $('#sideSum').innerHTML = `<span class="chip warn">${cnt('blocked')} need you</span><span class="chip busy">${cnt('busy')} working</span><span class="chip ok">${cnt('done')} done</span>`;
+      if (!all.length) list.append(el('p', 'side-empty', q ? 'No pane matches.' : 'No panes yet.'));
       for (const st of ['blocked', 'busy', 'done', 'idle', 'exit']) {
         const g = all.filter((x) => (x.p.state === 'bell' ? 'blocked' : x.p.state) === st); if (!g.length) continue;
         list.append(el('h4', '', `${LABEL[st]} <span>${g.length}</span>`));
@@ -547,6 +551,7 @@
     $('#newTab').onclick = () => newTab();
     $('#newMenuBtn').onclick = (e) => showMenu(e.currentTarget);
     $('#setClose').onclick = closeSettings;
+    $('#sideQ').oninput = () => renderSide();
     $('#settings').addEventListener('mousedown', (e) => { if (e.target.id === 'settings') closeSettings(); });
     $('#optStartup').onchange = async (e) => { e.target.checked = await H.setStartup(e.target.checked); };
     $('#optFont').onchange = (e) => setFont(+e.target.value || 14);
@@ -573,7 +578,7 @@
           t.el.hidden = true; $('#stage').append(t.el); tabs.push(t);
         } catch {}
       }
-      if (tabs.length) { activate(tabs[Math.min(Math.max(0, s.active | 0), tabs.length - 1)]); for (const t of tabs) if (t !== active) { renderTab(t); } activate(active); return; }
+      if (tabs.length) { activate(tabs[Math.min(Math.max(0, s.active | 0), tabs.length - 1)]); for (const t of tabs) if (t !== active) { renderTab(t); } activate(active); setTimeout(() => { focusPane(active.focus); renderStatus(); }, 300); return; }
     }
     newTab();
   }

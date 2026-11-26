@@ -1,6 +1,6 @@
 <p align="center"><img src="build/icon.png" width="96" alt="Swarmux logo"></p>
 
-# Swarmux
+# SWARMUX
 
 A real Windows terminal for running many coding agents side by side. Tabs, split panes, session restore and alerts when a pane finishes. Light, fast and open source.
 

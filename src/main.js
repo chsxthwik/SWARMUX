@@ -1,6 +1,6 @@
 'use strict';
 // SWARMUX main process: windows, real ConPTY shells (node-pty), settings and notifications.
-const { app, BrowserWindow, ipcMain, Notification, shell, Menu, powerMonitor } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, shell, Menu, powerMonitor, Tray, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -14,6 +14,9 @@ if (!app.requestSingleInstanceLock()) { app.quit(); }
 const STATE = () => path.join(app.getPath('userData'), 'state.json');
 const ptys = new Map(); // id -> { proc, buf, timer, owner }
 let win = null;
+let tray = null;
+let quitting = false;
+const bgOn = () => readState().background !== false; // keep terminals running when the window closes
 
 // ---------- profiles: the shells and WSL distributions on this PC ----------
 function which(cmd) {
@@ -35,6 +38,16 @@ function detectProfiles() {
   }
   const gitBash = ['C:\\Program Files\\Git\\bin\\bash.exe', 'C:\\Program Files (x86)\\Git\\bin\\bash.exe'].find(p => fs.existsSync(p));
   if (gitBash) out.push({ id: 'gitbash', name: 'Git Bash', kind: 'shell', file: gitBash, args: ['--login', '-i'] });
+  // SSH machines from your SSH config (plain Host entries, no wildcards).
+  try {
+    const cfg = fs.readFileSync(path.join(os.homedir(), '.ssh', 'config'), 'utf8');
+    const ssh = which('ssh.exe') || 'ssh.exe';
+    const seen = new Set();
+    for (const m of cfg.matchAll(/^\s*Host\s+(.+)$/gim)) for (const h of m[1].trim().split(/\s+/)) {
+      if (!h || /[*?!]/.test(h) || seen.has(h)) continue; seen.add(h);
+      out.push({ id: 'ssh:' + h, name: 'SSH: ' + h, kind: 'ssh', file: ssh, args: [h] });
+    }
+  } catch {}
   return out;
 }
 let PROFILES = [];
@@ -56,14 +69,17 @@ function createWindow() {
     try { if (process.env.SWARMUX_KEYS) for (const k of process.env.SWARMUX_KEYS.split(',').filter(Boolean)) { const [mods, key] = k.includes('+') ? [k.split('+').slice(0, -1).map(m => m.toLowerCase()), k.split('+').pop()] : [[], k]; win.webContents.sendInputEvent({ type: 'keyDown', keyCode: key, modifiers: mods }); win.webContents.sendInputEvent({ type: 'keyUp', keyCode: key, modifiers: mods }); await new Promise(r => setTimeout(r, 900)); }
       await new Promise(r => setTimeout(r, 2500));
       fs.writeFileSync(process.env.SWARMUX_SHOT, (await win.webContents.capturePage()).toPNG()); } catch (e) { console.error(e); }
-    win.close();
+    quitting = true; win.close();
   }, 2500));
   win.webContents.on('console-message', (e) => { if (process.env.SWARMUX_SHOT && e.level !== 'info' && e.level !== 'debug') console.error('renderer:', e.message); });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.webContents.on('will-navigate', (e) => e.preventDefault());
   const saveBounds = () => { if (!win || win.isDestroyed()) return; const s = readState(); s.maximized = win.isMaximized(); if (!s.maximized && !win.isMinimized()) s.bounds = win.getBounds(); writeState(s); };
-  win.on('close', saveBounds);
+  win.on('close', (e) => {
+    saveBounds();
+    if (!quitting && bgOn() && ptys.size) { e.preventDefault(); win.hide(); ensureTray(); }
+  });
   win.on('closed', () => { win = null; for (const id of [...ptys.keys()]) killPty(id); });
 }
 
@@ -117,11 +133,14 @@ ipcMain.on('app:notify', (_e, title, body) => {
   n.show();
   if (win && !win.isFocused()) win.flashFrame(true);
 });
-ipcMain.handle('settings:get', () => { const st = readState(); return { startup: app.isPackaged ? app.getLoginItemSettings().openAtLogin : !!st.startup, version: app.getVersion() }; });
+ipcMain.handle('settings:get', () => { const st = readState(); return { startup: app.isPackaged ? app.getLoginItemSettings().openAtLogin : !!st.startup, background: st.background !== false, updates: st.updates !== false, version: app.getVersion() }; });
+ipcMain.handle('settings:set', (_e, key, val) => { if (!['background', 'updates'].includes(key)) return; const st = readState(); st[key] = !!val; writeState(st); return !!val; });
+ipcMain.on('app:quit', () => { quitting = true; app.quit(); });
 ipcMain.handle('settings:startup', (_e, on) => { const st = readState(); st.startup = !!on; st.startupSet = true; writeState(st); if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: !!on, args: ['--restore'] }); return !!on; });
+ipcMain.on('app:restart-update', () => { quitting = true; try { require('electron-updater').autoUpdater.quitAndInstall(); } catch { app.quit(); } });
 ipcMain.on('app:open', (_e, url) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); });
 
-app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+app.on('second-instance', () => showWin());
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   PROFILES = detectProfiles();
@@ -129,6 +148,16 @@ app.whenReady().then(() => {
   const st = readState();
   if (app.isPackaged && !st.startupSet) { app.setLoginItemSettings({ openAtLogin: true, args: ['--restore'] }); st.startupSet = true; st.startup = true; writeState(st); }
   createWindow();
+  if (app.isPackaged && readState().updates !== false) {
+    try {
+      const { autoUpdater } = require('electron-updater');
+      autoUpdater.autoDownload = true; autoUpdater.autoInstallOnAppQuit = true;
+      autoUpdater.on('update-downloaded', (i) => { if (win && !win.isDestroyed()) win.webContents.send('app:update', i.version); });
+      autoUpdater.on('error', () => {});
+      const check = () => autoUpdater.checkForUpdates().catch(() => {});
+      setTimeout(check, 15000); setInterval(check, 4 * 3600 * 1000);
+    } catch {}
+  }
   // Windows shutdown or sign-out: save terminal contents before the session ends.
   const flush = () => { try { if (win && !win.isDestroyed()) win.webContents.send('app:save-now'); } catch {} };
   powerMonitor.on('shutdown', flush);
@@ -136,4 +165,14 @@ app.whenReady().then(() => {
   powerMonitor.on('lock-screen', flush);
 });
 app.on('window-all-closed', () => app.quit());
+app.on('before-quit', () => { quitting = true; });
+function showWin() { if (!win) return createWindow(); if (win.isMinimized()) win.restore(); win.show(); win.focus(); }
+function ensureTray() {
+  if (tray) return;
+  const icon = nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icon.ico')).resize({ width: 16, height: 16 });
+  tray = new Tray(icon);
+  tray.setToolTip('Swarmux: terminals still running');
+  tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Open Swarmux', click: showWin }, { type: 'separator' }, { label: 'Quit and end all terminals', click: () => { quitting = true; app.quit(); } }]));
+  tray.on('click', showWin);
+}
 app.on('session-end', () => { try { if (win && !win.isDestroyed()) win.webContents.send('app:save-now'); } catch {} });

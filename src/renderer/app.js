@@ -64,7 +64,7 @@
     root.append(head, body);
 
     const term = new Terminal({
-      fontFamily: '"Cascadia Code", "Cascadia Mono", Consolas, monospace', fontSize, lineHeight: 1.15, letterSpacing: 0,
+      fontFamily: '"Cascadia Code", "Cascadia Mono", Consolas, monospace', fontSize, lineHeight, letterSpacing: 0,
       cursorBlink: true, cursorStyle: 'bar', scrollback: 20000, allowProposedApi: true, theme: THEME,
       macOptionIsMeta: true, rightClickSelectsWord: false, smoothScrollDuration: 0, minimumContrastRatio: 1,
       windowsPty: { backend: 'conpty' },
@@ -84,7 +84,10 @@
       if (t && t.broadcast) { for (const q of panesIn(t.root)) if (q.alive) H.write(q.id, d); }
       else if (p.alive) H.write(id, d);
     });
-    term.onBell(() => { if (!isVisibleFocus(p)) setState(p, 'bell'); });
+    term.onBell(() => { if (!isVisibleFocus(p)) setState(p, 'blocked'); });
+    const setCwd = (d) => { if (!d) return; p.cwd = d; p.cwdEl.textContent = d; p.cwdEl.title = d; save(); };
+    term.parser.registerOscHandler(7, (data) => { try { const u = new URL(data); let d = decodeURIComponent(u.pathname); if (/^\/[A-Za-z]:/.test(d)) d = d.slice(1).replace(/\//g, '\\'); setCwd(d); } catch {} return true; });
+    term.parser.registerOscHandler(9, (data) => { if (data.startsWith('9;')) setCwd(data.slice(2).replace(/^"|"$/g, '')); return false; });
     term.onTitleChange((t) => { if (t) { t = /^[A-Za-z]:\\.*\.exe$/i.test(t) ? t.split('\\').pop().replace(/\.exe$/i, '') : t; p.name.textContent = t.length > 60 ? t.slice(0, 60) + '…' : t; const tb = tabOf(p); if (tb && !tb.custom && tb.focus === p.id) renderTabs(); } });
     term.attachCustomKeyEventHandler((e) => handleTermKey(e, p));
     root.addEventListener('contextmenu', (e) => { e.preventDefault(); if (term.hasSelection()) { H.copy(term.getSelection()); term.clearSelection(); } else { const t = H.paste(); if (t) term.paste(t); } });
@@ -139,12 +142,32 @@
     p.quietTimer = setTimeout(() => {
       if (!p.alive) return;
       const worked = Date.now() - (p.busyFrom || now) > 3000;
+      if (needsInput(p) && !isVisibleFocus(p)) {
+        setState(p, 'blocked');
+        if (notifyOn) { H.notify(`${p.name.textContent} needs your input`, tabOf(p) ? `In tab "${tabOf(p).title}"` : 'Swarmux'); ding(); }
+        return;
+      }
       if (worked && !isVisibleFocus(p)) {
         setState(p, 'done');
         const t = tabOf(p);
+        if (notifyOn) ding();
         if (notifyOn) H.notify(`${p.name.textContent} finished`, t ? `In tab "${t.title}"` : 'SWARMUX');
       } else setState(p, 'idle');
     }, 4000);
+  }
+  // Looks at the last lines on screen for a question the program is waiting on.
+  const ASK = /(\(y\/n\)|\[y\/n\]|\by\/N\b|do you want to|allow (this|once)|approve|press enter to continue|waiting for (your )?(input|approval)|\b1\. yes\b|continue\?)/i;
+  function needsInput(p) {
+    try {
+      const b = p.term.buffer.active; let txt = '';
+      for (let y = Math.max(0, b.baseY + b.cursorY - 8); y <= b.baseY + b.cursorY; y++) { const l = b.getLine(y); if (l) txt += l.translateToString(true) + '\n'; }
+      return ASK.test(txt);
+    } catch { return false; }
+  }
+  let audio = null;
+  function ding() {
+    if (!soundOn) return;
+    try { audio = audio || new AudioContext(); const o = audio.createOscillator(), g = audio.createGain(); o.frequency.value = 880; g.gain.setValueAtTime(0.06, audio.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.25); o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + 0.26); } catch {}
   }
   function setState(p, s) {
     p.state = s;
@@ -247,7 +270,7 @@
     const p = panes.get(id) || panesIn(t.root)[0]; if (!p) return;
     t.focus = p.id;
     for (const q of panesIn(t.root)) q.root.classList.toggle('focus', q === p);
-    if (p.state === 'done' || p.state === 'bell') setState(p, 'idle');
+    if (p.state === 'done' || p.state === 'blocked') setState(p, 'idle');
     p.term.focus();
     if (!quiet) renderTabs();
     renderStatus();
@@ -275,7 +298,10 @@
 
   // ---------- tabs ----------
   function newTab(profileId, opts = {}) {
-    const p = makePane(profileId || defaultProfile || (profiles[0] && profiles[0].id), opts.cwd);
+    const pid = profileId || defaultProfile || (profiles[0] && profiles[0].id);
+    const cur = active && panes.get(active.focus);
+    const cwd = opts.cwd || (cur && cur.profileId === pid ? cur.cwd : '');
+    const p = makePane(pid, cwd);
     const t = { id: uid(), title: opts.title || (profile(p.profileId) || {}).name || 'Shell', custom: !!opts.title, root: { t: 'pane', id: p.id }, focus: p.id, zoom: null, broadcast: false, el: el('div', 'ws') };
     t.el.hidden = true;
     $('#stage').append(t.el);
@@ -298,10 +324,11 @@
   }
   function tabState(t) {
     const st = panesIn(t.root).map((p) => p.state);
-    return st.includes('bell') ? 'bell' : st.includes('done') ? 'done' : st.includes('busy') ? 'busy' : st.every((s) => s === 'exit') ? 'exit' : 'idle';
+    return st.includes('blocked') ? 'blocked' : st.includes('done') ? 'done' : st.includes('busy') ? 'busy' : st.every((s) => s === 'exit') ? 'exit' : 'idle';
   }
   function updateTabDot(t) { const d = $(`#tabs [data-id="${t.id}"] .dot`); if (d) { const s = tabState(t); d.className = 'dot' + (s === 'idle' ? '' : ' ' + s); } }
   function renderTabs() {
+    renderSide();
     const bar = $('#tabs'); bar.textContent = '';
     tabs.forEach((t, i) => {
       const b = el('button', 'tab');
@@ -327,7 +354,31 @@
   }
 
   // ---------- status ----------
+  // Sidebar: every pane in every tab, grouped by what it needs from you.
+  let sideOn = true;
+  const LABEL = { blocked: 'Needs you', busy: 'Working', done: 'Done', idle: 'Idle', exit: 'Ended' };
+  let sideRaf = 0;
+  function renderSide() {
+    if (sideRaf) return;
+    sideRaf = requestAnimationFrame(() => {
+      sideRaf = 0;
+      const box = $('#side'); box.hidden = !sideOn; document.body.classList.toggle('side-on', sideOn);
+      if (!sideOn) return;
+      const list = $('#sideList'); list.textContent = '';
+      const all = []; tabs.forEach((t) => panesIn(t.root).forEach((p) => all.push({ t, p })));
+      for (const st of ['blocked', 'busy', 'done', 'idle', 'exit']) {
+        const g = all.filter((x) => (x.p.state === 'bell' ? 'blocked' : x.p.state) === st); if (!g.length) continue;
+        list.append(el('h4', '', `${LABEL[st]} <span>${g.length}</span>`));
+        for (const { t, p } of g) {
+          const b = el('button', 'si' + (active === t && t.focus === p.id ? ' cur' : ''), `<span class="dot ${st === 'idle' ? '' : st}"></span><span class="sn">${esc(p.name.textContent)}</span><span class="st">${esc(t.title)}</span>`);
+          b.title = p.cwd || ''; b.onclick = () => { activate(t); focusPane(p.id); };
+          list.append(b);
+        }
+      }
+    });
+  }
   function renderStatus() {
+    renderSide();
     const s = $('#status'); if (!active) return;
     const p = panes.get(active.focus);
     const all = [...panes.values()];
@@ -360,6 +411,7 @@
     if (c && s && (k === 'F' || k === 'f')) return run(openFind);
     if (c && s && /^Digit[1-9]$/.test(e.code)) return run(() => { const p = profiles[+e.code.slice(5) - 1]; if (p) newTab(p.id); });
     if (c && s && (k === 'P' || k === 'p')) return run(openPalette);
+    if (c && s && (k === 'S' || k === 's')) return run(() => $('#sideBtn').click());
     if (c && !s && k === ',') return run(openSettings);
     if (c && k === 'Tab') return run(() => { if (tabs.length > 1) activate(tabs[(tabs.indexOf(t) + (s ? tabs.length - 1 : 1)) % tabs.length]); });
     if (c && !s && !a && /^[1-9]$/.test(k)) return run(() => { const x = tabs[Math.min(+k - 1, tabs.length - 1)]; if (x) activate(x); });
@@ -418,7 +470,9 @@
       { name: 'Find in pane', key: 'Ctrl+Shift+F', run: openFind },
       { name: 'Rename tab', key: 'F2', run: () => t && rename(t) },
       { name: 'Clear pane', key: '', run: () => { const p = f && panes.get(f); if (p) p.term.clear(); } },
+      { name: 'Toggle sidebar', key: 'Ctrl+Shift+S', run: () => $('#sideBtn').click() },
       { name: 'Settings', key: 'Ctrl+,', run: openSettings },
+      { name: 'Quit and end all terminals', key: '', run: () => { try { saveFull(true); } catch {} H.quit(); } },
       { name: 'Shortcuts', key: 'F1', run: () => toggle($('#help')) },
     ];
   }
@@ -446,13 +500,15 @@
   }
 
   // ---------- settings ----------
-  let notifyOn = true, defaultProfile = null;
+  let notifyOn = true, defaultProfile = null, soundOn = true, lineHeight = 1.15;
   async function openSettings() {
     const st = await H.settings();
     $('#ver').textContent = 'Version ' + st.version;
     $('#optStartup').checked = !!st.startup;
     $('#optFont').value = fontSize;
     $('#optNotify').checked = notifyOn;
+    $('#optSound').checked = soundOn; $('#optLine').value = lineHeight;
+    $('#optBg').checked = st.background; $('#optUpd').checked = st.updates;
     const sel = $('#optDefault'); sel.innerHTML = profiles.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
     sel.value = defaultProfile || (profiles[0] && profiles[0].id);
     $('#settings').hidden = false;
@@ -473,7 +529,7 @@
     if (buf && p.opened) { try { o.buffer = p.ser.serialize({ scrollback: 1500 }); } catch {} }
     return o;
   }
-  const snapshot = (withBuffers) => ({ v: 1, fontSize, notifyOn, defaultProfile, active: tabs.indexOf(active), tabs: tabs.map((t) => ({ title: t.title, custom: t.custom, root: serialize(t.root, withBuffers) })) });
+  const snapshot = (withBuffers) => ({ v: 1, fontSize, notifyOn, defaultProfile, soundOn, lineHeight, sideOn, active: tabs.indexOf(active), tabs: tabs.map((t) => ({ title: t.title, custom: t.custom, root: serialize(t.root, withBuffers) })) });
   function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { saveFull(false); } catch {} }, 600); }
   // Terminal contents are saved when the window closes and every 2 minutes, so a crash loses little.
   const saveFull = (sync) => { const s = snapshot(true); s.at = Date.now(); sync ? H.saveSessionNow(s) : H.saveSession(s); };
@@ -495,6 +551,13 @@
     $('#optStartup').onchange = async (e) => { e.target.checked = await H.setStartup(e.target.checked); };
     $('#optFont').onchange = (e) => setFont(+e.target.value || 14);
     $('#optNotify').onchange = (e) => { notifyOn = e.target.checked; save(); };
+    $('#optSound').onchange = (e) => { soundOn = e.target.checked; save(); };
+    $('#optLine').onchange = (e) => { lineHeight = Math.min(1.6, Math.max(1, +e.target.value || 1.15)); for (const p of panes.values()) { p.term.options.lineHeight = lineHeight; safeFit(p); } save(); };
+    $('#optBg').onchange = async (e) => { e.target.checked = await H.setSetting('background', e.target.checked); };
+    $('#optUpd').onchange = async (e) => { e.target.checked = await H.setSetting('updates', e.target.checked); };
+    $('#sideBtn').onclick = () => { sideOn = !sideOn; renderSide(); save(); setTimeout(() => { if (active) panesIn(active.root).forEach(scheduleFit); }, 30); };
+    H.onUpdate((v) => { const s = $('#upd'); s.hidden = false; s.querySelector('b').textContent = v; });
+    $('#updBtn').onclick = () => { try { saveFull(true); } catch {} H.restartToUpdate(); };
     $('#optDefault').onchange = (e) => { defaultProfile = e.target.value; save(); };
     $('#repoLink').onclick = (e) => { e.preventDefault(); H.open('https://github.com/chsxthwik/SWARMUX'); };
     H.onSaveNow(() => { try { saveFull(true); } catch {} });
@@ -502,7 +565,7 @@
     window.addEventListener('focus', () => { if (active) focusPane(active.focus, true); });
     const s = await H.loadSession();
     if (s && s.v === 1 && Array.isArray(s.tabs) && s.tabs.length) {
-      fontSize = Math.min(28, Math.max(9, +s.fontSize || 14)); reviveAt = s.at; if (s.notifyOn === false) notifyOn = false; if (s.defaultProfile && profiles.some((p) => p.id === s.defaultProfile)) defaultProfile = s.defaultProfile;
+      fontSize = Math.min(28, Math.max(9, +s.fontSize || 14)); reviveAt = s.at; if (s.notifyOn === false) notifyOn = false; if (s.soundOn === false) soundOn = false; if (s.sideOn === false) sideOn = false; if (+s.lineHeight) lineHeight = Math.min(1.6, Math.max(1, +s.lineHeight)); if (s.defaultProfile && profiles.some((p) => p.id === s.defaultProfile)) defaultProfile = s.defaultProfile;
       for (const st of s.tabs) {
         try {
           const root = revive(st.root);

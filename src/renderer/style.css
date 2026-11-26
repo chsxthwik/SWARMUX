@@ -123,3 +123,24 @@ body { grid-template-rows: 40px 1fr 22px; }
 .srow select, .srow input[type=number] { padding: 5px 8px; border: 1px solid var(--line2); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; }
 .srow input[type=checkbox] { width: 18px; height: 18px; accent-color: #3DF28C; }
 .about { margin: 14px 0 0; color: var(--fg3); font-size: 12px; } .about a { color: var(--accent); }
+
+/* layout with sidebar */
+.body { display: flex; min-height: 0; }
+.body #stage { flex: 1; min-width: 0; }
+.side { width: 240px; flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: #0d0e10; }
+.side-h { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; color: var(--fg2); font-size: 11.5px; letter-spacing: .1em; border-bottom: 1px solid var(--line); }
+.side-list { flex: 1; overflow: auto; padding: 6px; scrollbar-width: thin; }
+.side-list h4 { display: flex; justify-content: space-between; margin: 10px 8px 4px; color: var(--fg3); font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.side-list h4 span { color: var(--fg3); }
+.si { display: grid; grid-template-columns: 10px minmax(0,1fr); grid-template-rows: auto auto; column-gap: 8px; width: 100%; padding: 7px 8px; border: 0; border-radius: 7px; background: transparent; text-align: left; cursor: pointer; }
+.si:hover { background: var(--raised); }
+.si.cur { background: var(--raised); box-shadow: inset 2px 0 0 var(--accent); }
+.si .dot { grid-row: span 2; align-self: center; }
+.si .sn { color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.si .st { color: var(--fg3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.dot.blocked { background: #ff8a3d; box-shadow: 0 0 0 3px rgba(255,138,61,.18); }
+.side-btn { align-self: center; margin-right: 4px; }
+.status { justify-content: space-between; }
+.st-in { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; }
+.upd { display: flex; align-items: center; gap: 8px; color: var(--accent); }
+.upd button { padding: 1px 10px; border: 1px solid var(--accent); border-radius: 999px; background: transparent; color: var(--accent); cursor: pointer; font-size: 11px; }

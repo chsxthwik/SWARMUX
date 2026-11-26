@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:">
-  <title>Swarmux</title>
+  <title>SWARMUX</title>
   <link rel="stylesheet" href="../../node_modules/@xterm/xterm/css/xterm.css">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -17,7 +17,13 @@
     </div>
     <div class="drag"></div>
   </header>
-  <div class="body"><aside id="side" class="side"><div class="side-h"><img src="logo.svg" width="16" height="16" alt=""><b>SWARMUX</b></div><div class="side-tools"><input id="sideQ" placeholder="Filter panes" aria-label="Filter panes"><div id="sideSum" class="side-sum"></div></div><div id="sideList" class="side-list"></div></aside><main id="stage"></main></div>
+  <div class="body"><aside id="side" class="side">
+      <div class="side-h"><img src="logo.svg" width="16" height="16" alt=""><b>SWARMUX</b></div>
+      <div class="sec-h"><span>Spaces</span><button id="spaceAdd" class="ib sm" title="New space (Ctrl+Shift+N)" aria-label="New space"><svg viewBox="0 0 16 16" width="12" height="12"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
+      <div id="spaceList" class="space-list"></div>
+      <div class="sec-h" id="attnHead" hidden><span>Attention</span></div>
+      <div id="attnList" class="side-list"></div>
+    </aside><main id="stage"></main></div>
   <footer class="status"><span id="status" class="st-in"></span><span id="upd" class="upd" hidden>Update <b></b> is ready <button id="updBtn">Restart</button></span></footer>
   <div id="menu" class="menu" hidden></div>
   <div id="help" class="help-panel" hidden>
@@ -37,6 +43,8 @@
       <dt>Ctrl+= / Ctrl+-</dt><dd>Font size</dd>
       <dt>F2</dt><dd>Rename tab</dd>
       <dt>Ctrl+Shift+S</dt><dd>Sidebar</dd>
+      <dt>Ctrl+Shift+N</dt><dd>New space</dd>
+      <dt>Ctrl+Alt+Up/Down</dt><dd>Switch space</dd>
       <dt>Ctrl+Shift+P</dt><dd>Command palette</dd>
       <dt>Ctrl+Shift+1…9</dt><dd>New tab with a profile</dd>
     </dl>
@@ -49,12 +57,12 @@
       <label class="srow"><span><b>Open with Windows</b><small>Starts at sign-in and brings back your tabs, splits, folders and output.</small></span><input type="checkbox" id="optStartup"></label>
       <label class="srow"><span><b>Default profile</b><small>Used for new tabs.</small></span><select id="optDefault"></select></label>
       <label class="srow"><span><b>Font size</b><small>Ctrl+= and Ctrl+- also work.</small></span><input type="number" id="optFont" min="9" max="28"></label>
-      <label class="srow"><span><b>Keep terminals running when the window closes</b><small>Swarmux stays in the tray; quit it from there.</small></span><input type="checkbox" id="optBg"></label>
+      <label class="srow"><span><b>Keep terminals running when the window closes</b><small>SWARMUX stays in the tray; quit it from there.</small></span><input type="checkbox" id="optBg"></label>
       <label class="srow"><span><b>Sound when a pane finishes or needs you</b><small>A short soft tone.</small></span><input type="checkbox" id="optSound"></label>
       <label class="srow"><span><b>Line height</b><small>1.0 to 1.6</small></span><input type="number" id="optLine" min="1" max="1.6" step="0.05"></label>
       <label class="srow"><span><b>Automatic updates</b><small>From GitHub releases, checked with SHA-512, installed when you quit.</small></span><input type="checkbox" id="optUpd"></label>
       <label class="srow"><span><b>Notify when a pane finishes</b><small>Only when you are looking at another pane or app.</small></span><input type="checkbox" id="optNotify"></label>
-      <p class="about">Swarmux by QUANTUM. MIT License. <a href="#" id="repoLink">github.com/chsxthwik/SWARMUX</a></p>
+      <p class="about">SWARMUX by QUANTUM. MIT License. <a href="#" id="repoLink">github.com/chsxthwik/SWARMUX</a></p>
     </div>
   </div>
   <div id="find" class="find" hidden><input id="findInput" placeholder="Find" aria-label="Find in pane"><span id="findInfo"></span></div>

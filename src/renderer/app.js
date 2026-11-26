@@ -40,6 +40,33 @@
   let fontSize = 14;
   const tabs = [];          // { id, title, custom, root, focus, zoom, broadcast, el }
   let active = null;
+  // Spaces: named groups of tabs, one per project or machine. Only the current space's tabs show in the tab strip.
+  const spaces = [];        // { id, name, last }
+  let space = null;
+  const vis = () => tabs.filter((t) => t.space === (space && space.id));
+  function addSpace(name) { const sp = { id: uid(), name: name || `Space ${spaces.length + 1}`, last: null }; spaces.push(sp); return sp; }
+  function switchSpace(sp) {
+    if (!sp) return; space = sp;
+    const list = vis();
+    if (!list.length) { newTab(); return; }
+    activate(list.find((t) => t.id === sp.last) || list[0]);
+  }
+  function newSpace() { const sp = addSpace(); space = sp; newTab(); }
+  function closeSpace(sp) {
+    for (const t of tabs.filter((x) => x.space === sp.id)) closeTab(t, false, true);
+    spaces.splice(spaces.indexOf(sp), 1);
+    if (!spaces.length) addSpace('Home');
+    switchSpace(space === sp || !spaces.includes(space) ? spaces[0] : space); save();
+  }
+  function renameSpace(sp) {
+    requestAnimationFrame(() => {
+      const row = document.querySelector(`#spaceList [data-id="${sp.id}"] .spn`); if (!row) return;
+      const inp = el('input', 'sp-in'); inp.value = sp.name; row.replaceWith(inp); inp.focus(); inp.select();
+      const done = (ok) => { if (ok && inp.value.trim()) sp.name = inp.value.trim().slice(0, 32); renderSide(true); save(); const p = active && panes.get(active.focus); if (p) p.term.focus(); };
+      inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); };
+      inp.onblur = () => done(true);
+    });
+  }
   const panes = new Map();  // paneId -> pane object
 
   const profile = (id) => profiles.find((p) => p.id === id) || profiles[0];
@@ -144,7 +171,7 @@
       const worked = Date.now() - (p.busyFrom || now) > 3000;
       if (needsInput(p) && !isVisibleFocus(p)) {
         setState(p, 'blocked');
-        if (notifyOn) { H.notify(`${p.name.textContent} needs your input`, tabOf(p) ? `In tab "${tabOf(p).title}"` : 'Swarmux'); ding(); }
+        if (notifyOn) { H.notify(`${p.name.textContent} needs your input`, tabOf(p) ? `In tab "${tabOf(p).title}"` : 'SWARMUX'); ding(); }
         return;
       }
       if (worked && !isVisibleFocus(p)) {
@@ -302,7 +329,8 @@
     const cur = active && panes.get(active.focus);
     const cwd = opts.cwd || (cur && cur.profileId === pid ? cur.cwd : '');
     const p = makePane(pid, cwd);
-    const t = { id: uid(), title: opts.title || (profile(p.profileId) || {}).name || 'Shell', custom: !!opts.title, root: { t: 'pane', id: p.id }, focus: p.id, zoom: null, broadcast: false, el: el('div', 'ws') };
+    if (!space) space = spaces[0] || addSpace('Home');
+    const t = { id: uid(), space: space.id, title: opts.title || (profile(p.profileId) || {}).name || 'Shell', custom: !!opts.title, root: { t: 'pane', id: p.id }, focus: p.id, zoom: null, broadcast: false, el: el('div', 'ws') };
     t.el.hidden = true;
     $('#stage').append(t.el);
     tabs.push(t);
@@ -312,14 +340,22 @@
   }
   function activate(t) {
     active = t;
+    const sp = spaces.find((x) => x.id === t.space); if (sp) { space = sp; sp.last = t.id; }
     for (const x of tabs) x.el.hidden = x !== t;
     renderTab(t); renderTabs();
   }
-  function closeTab(t, already) {
+  function closeTab(t, already, quiet) {
     if (!already) for (const p of panesIn(t.root)) { H.kill(p.id); clearTimeout(p.quietTimer); try { p.ro && p.ro.disconnect(); p.term.dispose(); } catch {} panes.delete(p.id); }
-    const i = tabs.indexOf(t); tabs.splice(i, 1); t.el.remove();
-    if (!tabs.length) { newTab(); return; }
-    if (active === t) activate(tabs[Math.min(i, tabs.length - 1)]);
+    const before = vis(); const i = before.indexOf(t);
+    tabs.splice(tabs.indexOf(t), 1); t.el.remove();
+    if (quiet) return;
+    const rest = vis();
+    if (!rest.length) {
+      const other = spaces.find((x) => x !== space && tabs.some((y) => y.space === x.id));
+      if (other) { spaces.splice(spaces.indexOf(space), 1); switchSpace(other); } else newTab();
+      save(); return;
+    }
+    if (active === t) activate(rest[Math.min(Math.max(0, i), rest.length - 1)]);
     renderTabs(); save();
   }
   function tabState(t) {
@@ -330,7 +366,7 @@
   function renderTabs() {
     renderSide();
     const bar = $('#tabs'); bar.textContent = '';
-    tabs.forEach((t, i) => {
+    vis().forEach((t, i) => {
       const b = el('button', 'tab');
       b.dataset.id = t.id; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(t === active));
       b.title = `${t.title}  (Ctrl+${i + 1})`;
@@ -364,20 +400,34 @@
       sideRaf = 0;
       const box = $('#side'); box.hidden = !sideOn; document.body.classList.toggle('side-on', sideOn);
       if (!sideOn) return;
-      const list = $('#sideList'); list.textContent = '';
-      const q = ($('#sideQ').value || '').toLowerCase().trim();
-      const all = []; tabs.forEach((t) => panesIn(t.root).forEach((p) => { if (!q || (p.name.textContent + ' ' + t.title + ' ' + (p.cwd || '')).toLowerCase().includes(q)) all.push({ t, p }); }));
-      const cnt = (st) => all.filter((x) => (x.p.state === 'bell' ? 'blocked' : x.p.state) === st).length;
-      $('#sideSum').innerHTML = `<span class="chip warn">${cnt('blocked')} need you</span><span class="chip busy">${cnt('busy')} working</span><span class="chip ok">${cnt('done')} done</span>`;
-      if (!all.length) list.append(el('p', 'side-empty', q ? 'No pane matches.' : 'No panes yet.'));
-      for (const st of ['blocked', 'busy', 'done', 'idle', 'exit']) {
-        const g = all.filter((x) => (x.p.state === 'bell' ? 'blocked' : x.p.state) === st); if (!g.length) continue;
-        list.append(el('h4', '', `${LABEL[st]} <span>${g.length}</span>`));
-        for (const { t, p } of g) {
-          const b = el('button', 'si' + (active === t && t.focus === p.id ? ' cur' : ''), `<span class="dot ${st === 'idle' ? '' : st}"></span><span class="sn">${esc(p.name.textContent)}</span><span class="st">${esc(t.title)}</span>`);
-          b.title = p.cwd || ''; b.onclick = () => { activate(t); focusPane(p.id); };
-          list.append(b);
-        }
+      const st = (p) => (p.state === 'bell' ? 'blocked' : p.state);
+      const worst = (list) => { const s2 = list.map(st); return s2.includes('blocked') ? 'blocked' : s2.includes('done') ? 'done' : s2.includes('busy') ? 'busy' : ''; };
+      // spaces
+      const sl = $('#spaceList'); sl.textContent = '';
+      spaces.forEach((sp, i) => {
+        const ts = tabs.filter((t) => t.space === sp.id); const ps = ts.flatMap((t) => panesIn(t.root));
+        const b = el('div', 'spc' + (sp === space ? ' cur' : ''));
+        b.dataset.id = sp.id; b.setAttribute('role', 'button'); b.tabIndex = 0;
+        b.innerHTML = `<span class="spi">${esc((sp.name[0] || 'S').toUpperCase())}</span><span class="spn">${esc(sp.name)}</span><span class="dot ${worst(ps)}"></span><span class="spc-n">${ts.length}</span>`;
+        const x = el('button', 'spx', ICON.close); x.title = 'Close space and its tabs'; x.setAttribute('aria-label', 'Close space');
+        x.onclick = (e) => { e.stopPropagation(); if (x.classList.contains('arm')) closeSpace(sp); else { x.classList.add('arm'); x.title = 'Click again to close'; setTimeout(() => x.classList.remove('arm'), 2500); } };
+        if (spaces.length > 1) b.append(x);
+        b.onclick = () => switchSpace(sp);
+        b.onkeydown = (e) => { if (e.key === 'Enter') switchSpace(sp); if (e.key === 'F2') renameSpace(sp); };
+        b.ondblclick = () => renameSpace(sp);
+        b.title = `${sp.name}${i < 9 ? '' : ''}  (Ctrl+Alt+Up/Down to switch, double-click to rename)`;
+        sl.append(b);
+      });
+      // attention: only panes that need something
+      const al = $('#attnList'); al.textContent = '';
+      const items = []; tabs.forEach((t) => panesIn(t.root).forEach((p) => { const s3 = st(p); if (s3 === 'blocked' || s3 === 'busy' || s3 === 'done') items.push({ t, p, s3 }); }));
+      items.sort((a1, b1) => ['blocked', 'done', 'busy'].indexOf(a1.s3) - ['blocked', 'done', 'busy'].indexOf(b1.s3));
+      $('#attnHead').hidden = !items.length;
+      for (const { t, p, s3 } of items) {
+        const sp = spaces.find((x) => x.id === t.space);
+        const b = el('button', 'si' + (active === t && t.focus === p.id ? ' cur' : ''), `<span class="dot ${s3}"></span><span class="sn">${esc(p.name.textContent)}</span><span class="st">${esc(LABEL[s3])} in ${esc(sp ? sp.name : '')}, ${esc(t.title)}</span>`);
+        b.onclick = () => { activate(t); focusPane(p.id); };
+        al.append(b);
       }
     });
   }
@@ -417,12 +467,14 @@
     if (c && s && (k === 'P' || k === 'p')) return run(openPalette);
     if (c && s && (k === 'S' || k === 's')) return run(() => $('#sideBtn').click());
     if (c && !s && k === ',') return run(openSettings);
-    if (c && k === 'Tab') return run(() => { if (tabs.length > 1) activate(tabs[(tabs.indexOf(t) + (s ? tabs.length - 1 : 1)) % tabs.length]); });
-    if (c && !s && !a && /^[1-9]$/.test(k)) return run(() => { const x = tabs[Math.min(+k - 1, tabs.length - 1)]; if (x) activate(x); });
+    if (c && k === 'Tab') return run(() => { const v = vis(); if (v.length > 1) activate(v[(v.indexOf(t) + (s ? v.length - 1 : 1)) % v.length]); });
+    if (c && s && (k === 'N' || k === 'n')) return run(newSpace);
+    if (c && a && (k === 'ArrowUp' || k === 'ArrowDown')) return run(() => { if (spaces.length > 1) switchSpace(spaces[(spaces.indexOf(space) + (k === 'ArrowUp' ? spaces.length - 1 : 1)) % spaces.length]); });
+    if (c && !s && !a && /^[1-9]$/.test(k)) return run(() => { const v = vis(); const x = v[Math.min(+k - 1, v.length - 1)]; if (x) activate(x); });
     if (c && !s && (k === '=' || k === '+')) return run(() => setFont(fontSize + 1));
     if (c && !s && k === '-') return run(() => setFont(fontSize - 1));
     if (c && !s && k === '0') return run(() => setFont(14));
-    if (a && !c && k.startsWith('Arrow')) return run(() => moveFocus(k.slice(5).toLowerCase()));
+    if (a && !c && !s && k.startsWith('Arrow')) return run(() => moveFocus(k.slice(5).toLowerCase()));
     if (k === 'F1') return run(() => toggle($('#help')));
     if (k === 'F2') return run(() => t && rename(t));
     return false;
@@ -474,6 +526,9 @@
       { name: 'Find in pane', key: 'Ctrl+Shift+F', run: openFind },
       { name: 'Rename tab', key: 'F2', run: () => t && rename(t) },
       { name: 'Clear pane', key: '', run: () => { const p = f && panes.get(f); if (p) p.term.clear(); } },
+      { name: 'New space', key: 'Ctrl+Shift+N', run: newSpace },
+      { name: 'Rename space', key: '', run: () => space && renameSpace(space) },
+      ...spaces.map((sp) => ({ name: `Go to space: ${sp.name}`, key: '', run: () => switchSpace(sp) })),
       { name: 'Toggle sidebar', key: 'Ctrl+Shift+S', run: () => $('#sideBtn').click() },
       { name: 'Settings', key: 'Ctrl+,', run: openSettings },
       { name: 'Quit and end all terminals', key: '', run: () => { try { saveFull(true); } catch {} H.quit(); } },
@@ -533,7 +588,7 @@
     if (buf && p.opened) { try { o.buffer = p.ser.serialize({ scrollback: 1500 }); } catch {} }
     return o;
   }
-  const snapshot = (withBuffers) => ({ v: 1, fontSize, notifyOn, defaultProfile, soundOn, lineHeight, sideOn, active: tabs.indexOf(active), tabs: tabs.map((t) => ({ title: t.title, custom: t.custom, root: serialize(t.root, withBuffers) })) });
+  const snapshot = (withBuffers) => ({ v: 1, fontSize, notifyOn, defaultProfile, soundOn, lineHeight, sideOn, space: spaces.indexOf(space), spaces: spaces.map((sp) => ({ name: sp.name, last: tabs.filter((t) => t.space === sp.id).findIndex((t) => t.id === sp.last) })), active: tabs.indexOf(active), tabs: tabs.map((t) => ({ title: t.title, custom: t.custom, space: spaces.findIndex((sp) => sp.id === t.space), root: serialize(t.root, withBuffers) })) });
   function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { saveFull(false); } catch {} }, 600); }
   // Terminal contents are saved when the window closes and every 2 minutes, so a crash loses little.
   const saveFull = (sync) => { const s = snapshot(true); s.at = Date.now(); sync ? H.saveSessionNow(s) : H.saveSession(s); };
@@ -551,7 +606,7 @@
     $('#newTab').onclick = () => newTab();
     $('#newMenuBtn').onclick = (e) => showMenu(e.currentTarget);
     $('#setClose').onclick = closeSettings;
-    $('#sideQ').oninput = () => renderSide();
+    $('#spaceAdd').onclick = newSpace;
     $('#settings').addEventListener('mousedown', (e) => { if (e.target.id === 'settings') closeSettings(); });
     $('#optStartup').onchange = async (e) => { e.target.checked = await H.setStartup(e.target.checked); };
     $('#optFont').onchange = (e) => setFont(+e.target.value || 14);
@@ -569,17 +624,21 @@
     addEventListener('resize', () => { if (active) for (const p of panesIn(active.root)) scheduleFit(p); });
     window.addEventListener('focus', () => { if (active) focusPane(active.focus, true); });
     const s = await H.loadSession();
+    for (const sp of (s && Array.isArray(s.spaces) && s.spaces.length ? s.spaces : [{ name: 'Home' }])) addSpace(String(sp.name || 'Space').slice(0, 32));
     if (s && s.v === 1 && Array.isArray(s.tabs) && s.tabs.length) {
       fontSize = Math.min(28, Math.max(9, +s.fontSize || 14)); reviveAt = s.at; if (s.notifyOn === false) notifyOn = false; if (s.soundOn === false) soundOn = false; if (s.sideOn === false) sideOn = false; if (+s.lineHeight) lineHeight = Math.min(1.6, Math.max(1, +s.lineHeight)); if (s.defaultProfile && profiles.some((p) => p.id === s.defaultProfile)) defaultProfile = s.defaultProfile;
       for (const st of s.tabs) {
         try {
           const root = revive(st.root);
-          const t = { id: uid(), title: st.title || 'Shell', custom: !!st.custom, root, focus: panesIn(root)[0].id, zoom: null, broadcast: false, el: el('div', 'ws') };
+          const t = { id: uid(), space: (spaces[st.space | 0] || spaces[0]).id, title: st.title || 'Shell', custom: !!st.custom, root, focus: panesIn(root)[0].id, zoom: null, broadcast: false, el: el('div', 'ws') };
           t.el.hidden = true; $('#stage').append(t.el); tabs.push(t);
         } catch {}
       }
+      for (const sp of spaces) if (!tabs.some((t) => t.space === sp.id)) spaces.splice(spaces.indexOf(sp), 1);
+      if (!spaces.length) addSpace('Home');
       if (tabs.length) { activate(tabs[Math.min(Math.max(0, s.active | 0), tabs.length - 1)]); for (const t of tabs) if (t !== active) { renderTab(t); } activate(active); setTimeout(() => { focusPane(active.focus); renderStatus(); }, 300); return; }
     }
+    space = spaces[0];
     newTab();
   }
   boot().catch((e) => console.error("BOOT", e.stack));

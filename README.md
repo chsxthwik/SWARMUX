@@ -1,4 +1,4 @@
-<p align="center"><img src="build/icon.png" width="96" alt="Swarmux logo"></p>
+<p align="center"><img src="build/icon.png" width="96" alt="SWARMUX logo"></p>
 
 # SWARMUX
 
@@ -11,11 +11,12 @@ A real Windows terminal for running many coding agents side by side. Tabs, split
 - Opens with Windows (on by default, switch it off in Settings), and saves your session on shutdown, sleep and lock, so a restart brings everything back.
 - Tabs and split panes; drag a divider to resize, double-click it to even it out.
 - Each pane shows its state: working (amber), finished (green), bell (red), ended (hollow). When a pane goes quiet after working and you are looking elsewhere, you get a Windows notification and the taskbar flashes.
-- Sidebar (`Ctrl+Shift+S`) with every pane in every tab, grouped by what it needs: Needs you, Working, Done, Idle and Ended. Click one to jump to it.
+- Spaces: named groups of tabs, one per project or machine (`Ctrl+Shift+N` new, `Ctrl+Alt+Up/Down` switch, double-click to rename).
+- Sidebar (`Ctrl+Shift+S`) with your spaces and an Attention list of panes that need you, are working or just finished. Click one to jump to it.
 - Notices when a program is waiting on you (a yes/no or approval prompt, or a bell) and tells you, with an optional soft sound.
 - New tabs open in the focused terminal's folder (shells that report it through OSC 7 or OSC 9;9).
 - SSH machines from your SSH config appear as profiles.
-- Keeps terminals running when you close the window: Swarmux stays in the tray until you quit it there.
+- Keeps terminals running when you close the window: SWARMUX stays in the tray until you quit it there.
 - Updates itself from GitHub releases (checked with SHA-512, installed when you quit); switch it off in Settings.
 - Broadcast mode types into every pane of a tab at once.
 - Picks up where you left off: tabs, splits, shells, folders and recent output come back on the next start.
@@ -23,7 +24,7 @@ A real Windows terminal for running many coding agents side by side. Tabs, split
 
 ## Install
 
-Download `Swarmux-Setup.exe` from the [latest release](https://github.com/chsxthwik/SWARMUX/releases/latest) and run it. You choose the folder; no admin rights needed. The installer is not code-signed yet, so if SmartScreen asks, choose **More info**, then **Run anyway**.
+Download `SWARMUX-Setup.exe` from the [latest release](https://github.com/chsxthwik/SWARMUX/releases/latest) and run it. You choose the folder; no admin rights needed. The installer is not code-signed yet, so if SmartScreen asks, choose **More info**, then **Run anyway**.
 
 ## Run from source
 
@@ -56,6 +57,8 @@ Build the installer with `npm run dist`; it lands in `dist/`.
 | `Ctrl+Shift+1…9` | New tab with a profile |
 | `Ctrl+Shift+P` | Command palette |
 | `Ctrl+Shift+S` | Sidebar |
+| `Ctrl+Shift+N` | New space |
+| `Ctrl+Alt+Up/Down` | Switch space |
 | `Ctrl+,` | Settings |
 | `F1` | All shortcuts |
 

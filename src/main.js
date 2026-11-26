@@ -171,8 +171,8 @@ function ensureTray() {
   if (tray) return;
   const icon = nativeImage.createFromPath(path.join(__dirname, '..', 'build', 'icon.ico')).resize({ width: 16, height: 16 });
   tray = new Tray(icon);
-  tray.setToolTip('Swarmux: terminals still running');
-  tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Open Swarmux', click: showWin }, { type: 'separator' }, { label: 'Quit and end all terminals', click: () => { quitting = true; app.quit(); } }]));
+  tray.setToolTip('SWARMUX: terminals still running');
+  tray.setContextMenu(Menu.buildFromTemplate([{ label: 'Open SWARMUX', click: showWin }, { type: 'separator' }, { label: 'Quit and end all terminals', click: () => { quitting = true; app.quit(); } }]));
   tray.on('click', showWin);
 }
 app.on('session-end', () => { try { if (win && !win.isDestroyed()) win.webContents.send('app:save-now'); } catch {} });

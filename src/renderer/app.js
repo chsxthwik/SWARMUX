@@ -20,6 +20,14 @@
     black: '#1b1e22', red: '#ff6b6b', green: '#3DF28C', yellow: '#f5b84b', blue: '#6aa8ff', magenta: '#c49bff', cyan: '#4fd6d0', white: '#d7dbe0',
     brightBlack: '#5c636c', brightRed: '#ff8a8a', brightGreen: '#7af7b0', brightYellow: '#ffd27a', brightBlue: '#94c1ff', brightMagenta: '#d8bcff', brightCyan: '#7fe7e2', brightWhite: '#ffffff',
   };
+  const PICON = {
+    shell: '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="#1f6feb"/><path d="M4.5 6l2 2-2 2M8 10h3.5" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    cmd: '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="#2b2f34" stroke="#8b949e"/><path d="M4.5 6l2 2-2 2M8 10h3.5" fill="none" stroke="#e6e9ec" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    wsl: '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="#e95420"/><path d="M4.5 6l2 2-2 2M8 10h3.5" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    gitbash: '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="#f05032"/><path d="M4.5 6l2 2-2 2M8 10h3.5" fill="none" stroke="#fff" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    agent: '<svg viewBox="0 0 16 16" width="14" height="14"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="#0f2a1c" stroke="#3DF28C"/><circle cx="6" cy="8" r="1.4" fill="#3DF28C"/><circle cx="10" cy="8" r="1.4" fill="#3DF28C"/></svg>',
+  };
+  const picon = (prof) => !prof ? PICON.shell : prof.kind === 'agent' ? PICON.agent : PICON[prof.id] || (/^wsl/.test(prof.id) ? PICON.wsl : prof.id === 'cmd' ? PICON.cmd : PICON.shell);
   const ICON = {
     right: '<svg viewBox="0 0 16 16" width="13" height="13"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 2.5v11" stroke="currentColor" stroke-width="1.3"/></svg>',
     down: '<svg viewBox="0 0 16 16" width="13" height="13"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 8h13" stroke="currentColor" stroke-width="1.3"/></svg>',
@@ -134,7 +142,7 @@
       if (worked && !isVisibleFocus(p)) {
         setState(p, 'done');
         const t = tabOf(p);
-        H.notify(`${p.name.textContent} finished`, t ? `In tab "${t.title}"` : 'SWARMUX');
+        if (notifyOn) H.notify(`${p.name.textContent} finished`, t ? `In tab "${t.title}"` : 'SWARMUX');
       } else setState(p, 'idle');
     }, 4000);
   }
@@ -267,7 +275,7 @@
 
   // ---------- tabs ----------
   function newTab(profileId, opts = {}) {
-    const p = makePane(profileId || (profiles[0] && profiles[0].id), opts.cwd);
+    const p = makePane(profileId || defaultProfile || (profiles[0] && profiles[0].id), opts.cwd);
     const t = { id: uid(), title: opts.title || (profile(p.profileId) || {}).name || 'Shell', custom: !!opts.title, root: { t: 'pane', id: p.id }, focus: p.id, zoom: null, broadcast: false, el: el('div', 'ws') };
     t.el.hidden = true;
     $('#stage').append(t.el);
@@ -300,7 +308,7 @@
       b.dataset.id = t.id; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(t === active));
       b.title = `${t.title}  (Ctrl+${i + 1})`;
       const s = tabState(t);
-      b.append(el('span', 'dot' + (s === 'idle' ? '' : ' ' + s)), el('span', 't', esc(t.title)));
+      const fp = panes.get(t.focus); b.append(el('span', 'pi', picon(profile(fp ? fp.profileId : null))), el('span', 't', esc(t.title)), el('span', 'dot' + (s === 'idle' ? '' : ' ' + s)));
       const n = panesIn(t.root).length; if (n > 1) b.append(el('span', 'k', `<small style="color:var(--fg3)">${n}</small>`));
       const x = el('span', 'x', ICON.close); x.title = 'Close tab'; x.onclick = (e) => { e.stopPropagation(); closeTab(t); };
       b.append(x);
@@ -350,6 +358,9 @@
     if (c && s && (k === 'Z' || k === 'z')) return run(toggleZoom);
     if (c && s && (k === 'B' || k === 'b')) return run(() => { if (!t) return; t.broadcast = !t.broadcast; for (const p of panesIn(t.root)) p.bc.hidden = !t.broadcast; renderStatus(); });
     if (c && s && (k === 'F' || k === 'f')) return run(openFind);
+    if (c && s && /^Digit[1-9]$/.test(e.code)) return run(() => { const p = profiles[+e.code.slice(5) - 1]; if (p) newTab(p.id); });
+    if (c && s && (k === 'P' || k === 'p')) return run(openPalette);
+    if (c && !s && k === ',') return run(openSettings);
     if (c && k === 'Tab') return run(() => { if (tabs.length > 1) activate(tabs[(tabs.indexOf(t) + (s ? tabs.length - 1 : 1)) % tabs.length]); });
     if (c && !s && !a && /^[1-9]$/.test(k)) return run(() => { const x = tabs[Math.min(+k - 1, tabs.length - 1)]; if (x) activate(x); });
     if (c && !s && (k === '=' || k === '+')) return run(() => setFont(fontSize + 1));
@@ -360,7 +371,7 @@
     if (k === 'F2') return run(() => t && rename(t));
     return false;
   }
-  addEventListener('keydown', (e) => { if (e.target.closest && e.target.closest('.xterm')) return; if (e.target.tagName === 'INPUT') return; globalKey(e); });
+  addEventListener('keydown', (e) => { if (e.target.closest && e.target.closest('.xterm')) return; if (/INPUT|SELECT/.test(e.target.tagName)) return; globalKey(e); });
   function setFont(n) { fontSize = Math.min(28, Math.max(9, n)); for (const p of panes.values()) { p.term.options.fontSize = fontSize; safeFit(p); } save(); }
   const toggle = (n) => { n.hidden = !n.hidden; };
 
@@ -380,18 +391,79 @@
   // ---------- new-tab menu ----------
   function showMenu(anchor) {
     const m = $('#menu'); m.textContent = '';
-    const group = (title, list) => { if (!list.length) return; m.append(el('h4', '', title)); for (const p of list) { const b = el('button', '', `<span>${esc(p.name)}</span>`); b.onclick = () => { m.hidden = true; newTab(p.id); }; m.append(b); } };
-    group('Shells', profiles.filter((p) => p.kind === 'shell'));
-    group('Agents', profiles.filter((p) => p.kind === 'agent'));
+    profiles.forEach((p, i) => {
+      const b = el('button', '', `<span class="pi">${picon(p)}</span><span>${i === 0 ? '<b>' + esc(p.name) + '</b>' : esc(p.name)}</span>${i < 9 ? `<span class="k">Ctrl+Shift+${i + 1}</span>` : ''}`);
+      b.onclick = () => { m.hidden = true; newTab(p.id); }; m.append(b);
+    });
+    m.append(el('hr'));
+    const item = (icon, label, key, fn) => { const b = el('button', '', `<span class="pi">${icon}</span><span>${label}</span><span class="k">${key}</span>`); b.onclick = () => { m.hidden = true; fn(); }; m.append(b); };
+    item('<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="2.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>', 'Settings', 'Ctrl+,', openSettings);
+    item('<svg viewBox="0 0 16 16" width="14" height="14"><path d="M9 1.5L3.5 9H8l-1 5.5L12.5 7H8z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>', 'Command palette', 'Ctrl+Shift+P', openPalette);
+    item('<svg viewBox="0 0 16 16" width="14" height="14"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M8 7.5V11M8 5v.1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>', 'Shortcuts', 'F1', () => toggle($('#help')));
     const r = anchor.getBoundingClientRect();
-    m.style.left = r.left + 'px'; m.style.top = r.bottom + 6 + 'px'; m.hidden = false;
+    m.style.left = Math.min(r.left, innerWidth - 300) + 'px'; m.style.top = r.bottom + 4 + 'px'; m.hidden = false;
     m.querySelector('button')?.focus();
   }
+
+  // ---------- command palette ----------
+  function commands() {
+    const t = active, f = t && t.focus;
+    return [
+      ...profiles.map((p) => ({ name: `New tab: ${p.name}`, key: '', run: () => newTab(p.id) })),
+      { name: 'Split pane right', key: 'Ctrl+Shift+D', run: () => f && split(f, 'row') },
+      { name: 'Split pane down', key: 'Ctrl+Shift+E', run: () => f && split(f, 'col') },
+      { name: 'Close pane', key: 'Ctrl+Shift+W', run: () => f && closePane(f) },
+      { name: 'Zoom pane', key: 'Ctrl+Shift+Z', run: toggleZoom },
+      { name: 'Toggle broadcast input', key: 'Ctrl+Shift+B', run: () => globalKey(new KeyboardEvent('keydown', { key: 'B', ctrlKey: true, shiftKey: true })) },
+      { name: 'Find in pane', key: 'Ctrl+Shift+F', run: openFind },
+      { name: 'Rename tab', key: 'F2', run: () => t && rename(t) },
+      { name: 'Clear pane', key: '', run: () => { const p = f && panes.get(f); if (p) p.term.clear(); } },
+      { name: 'Settings', key: 'Ctrl+,', run: openSettings },
+      { name: 'Shortcuts', key: 'F1', run: () => toggle($('#help')) },
+    ];
+  }
+  function openPalette() {
+    const box = $('#palette'), inp = $('#palInput'), list = $('#palList');
+    let sel = 0, shown = [];
+    const draw = () => {
+      const q = inp.value.toLowerCase().trim();
+      shown = commands().filter((c) => !q || q.split(/\s+/).every((w) => c.name.toLowerCase().includes(w)));
+      sel = Math.min(sel, Math.max(0, shown.length - 1));
+      list.innerHTML = shown.map((c, i) => `<div role="option" aria-selected="${i === sel}" data-i="${i}"><span>${esc(c.name)}</span><small>${esc(c.key)}</small></div>`).join('');
+    };
+    const run = (i) => { const c = shown[i]; close(); if (c) c.run(); };
+    const close = () => { box.hidden = true; const p = active && panes.get(active.focus); if (p) p.term.focus(); };
+    inp.value = ''; sel = 0; draw(); box.hidden = false; inp.focus();
+    inp.oninput = () => { sel = 0; draw(); };
+    inp.onkeydown = (e) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); sel = Math.min(shown.length - 1, sel + 1); draw(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); sel = Math.max(0, sel - 1); draw(); }
+      else if (e.key === 'Enter') { e.preventDefault(); run(sel); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    };
+    list.onclick = (e) => { const d = e.target.closest('[data-i]'); if (d) run(+d.dataset.i); };
+    inp.onblur = () => setTimeout(() => { if (!box.contains(document.activeElement)) box.hidden = true; }, 120);
+  }
+
+  // ---------- settings ----------
+  let notifyOn = true, defaultProfile = null;
+  async function openSettings() {
+    const st = await H.settings();
+    $('#ver').textContent = 'Version ' + st.version;
+    $('#optStartup').checked = !!st.startup;
+    $('#optFont').value = fontSize;
+    $('#optNotify').checked = notifyOn;
+    const sel = $('#optDefault'); sel.innerHTML = profiles.map((p) => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+    sel.value = defaultProfile || (profiles[0] && profiles[0].id);
+    $('#settings').hidden = false;
+  }
+  function closeSettings() { $('#settings').hidden = true; const p = active && panes.get(active.focus); if (p) p.term.focus(); }
+
   addEventListener('mousedown', (e) => {
     const m = $('#menu'); if (!m.hidden && !m.contains(e.target) && e.target.id !== 'newMenuBtn') m.hidden = true;
-    const h = $('#help'); if (!h.hidden && !h.contains(e.target) && e.target.id !== 'helpBtn') h.hidden = true;
+    const h = $('#help'); if (!h.hidden && !h.contains(e.target) && !e.target.closest('#menu')) h.hidden = true;
   });
-  addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('#menu').hidden = true; $('#help').hidden = true; } });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape') { $('#menu').hidden = true; $('#help').hidden = true; if (!$('#settings').hidden) closeSettings(); } });
 
   // ---------- persistence ----------
   let saveTimer = 0, reviveAt = 0;
@@ -401,13 +473,13 @@
     if (buf && p.opened) { try { o.buffer = p.ser.serialize({ scrollback: 1500 }); } catch {} }
     return o;
   }
-  const snapshot = (withBuffers) => ({ v: 1, fontSize, active: tabs.indexOf(active), tabs: tabs.map((t) => ({ title: t.title, custom: t.custom, root: serialize(t.root, withBuffers) })) });
+  const snapshot = (withBuffers) => ({ v: 1, fontSize, notifyOn, defaultProfile, active: tabs.indexOf(active), tabs: tabs.map((t) => ({ title: t.title, custom: t.custom, root: serialize(t.root, withBuffers) })) });
   function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { saveFull(false); } catch {} }, 600); }
   // Terminal contents are saved when the window closes and every 2 minutes, so a crash loses little.
   const saveFull = (sync) => { const s = snapshot(true); s.at = Date.now(); sync ? H.saveSessionNow(s) : H.saveSession(s); };
   addEventListener('beforeunload', () => { try { saveFull(true); } catch {} });
   addEventListener('blur', () => { try { saveFull(false); } catch {} });
-  setInterval(() => { try { saveFull(false); } catch {} }, 120000);
+  setInterval(() => { try { saveFull(false); } catch {} }, 30000);
   function revive(node) {
     if (node.t === 'pane') { const p = makePane(node.profileId, node.cwd, { buffer: typeof node.buffer === 'string' ? node.buffer : '', at: reviveAt }); return { t: 'pane', id: p.id }; }
     return { t: 'split', dir: node.dir === 'col' ? 'col' : 'row', r: Math.min(0.9, Math.max(0.1, +node.r || 0.5)), a: revive(node.a), b: revive(node.b) };
@@ -416,14 +488,21 @@
   // ---------- boot ----------
   async function boot() {
     profiles = await H.profiles();
-    $('#newTab').onclick = () => newTab(active ? panes.get(active.focus)?.profileId : undefined);
+    $('#newTab').onclick = () => newTab();
     $('#newMenuBtn').onclick = (e) => showMenu(e.currentTarget);
-    $('#helpBtn').onclick = () => toggle($('#help'));
+    $('#setClose').onclick = closeSettings;
+    $('#settings').addEventListener('mousedown', (e) => { if (e.target.id === 'settings') closeSettings(); });
+    $('#optStartup').onchange = async (e) => { e.target.checked = await H.setStartup(e.target.checked); };
+    $('#optFont').onchange = (e) => setFont(+e.target.value || 14);
+    $('#optNotify').onchange = (e) => { notifyOn = e.target.checked; save(); };
+    $('#optDefault').onchange = (e) => { defaultProfile = e.target.value; save(); };
+    $('#repoLink').onclick = (e) => { e.preventDefault(); H.open('https://github.com/chsxthwik/SWARMUX'); };
+    H.onSaveNow(() => { try { saveFull(true); } catch {} });
     addEventListener('resize', () => { if (active) for (const p of panesIn(active.root)) scheduleFit(p); });
     window.addEventListener('focus', () => { if (active) focusPane(active.focus, true); });
     const s = await H.loadSession();
     if (s && s.v === 1 && Array.isArray(s.tabs) && s.tabs.length) {
-      fontSize = Math.min(28, Math.max(9, +s.fontSize || 14)); reviveAt = s.at;
+      fontSize = Math.min(28, Math.max(9, +s.fontSize || 14)); reviveAt = s.at; if (s.notifyOn === false) notifyOn = false; if (s.defaultProfile && profiles.some((p) => p.id === s.defaultProfile)) defaultProfile = s.defaultProfile;
       for (const st of s.tabs) {
         try {
           const root = revive(st.root);

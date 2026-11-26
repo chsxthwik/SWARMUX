@@ -16,6 +16,9 @@ contextBridge.exposeInMainWorld('swarmux', {
   saveSessionNow: (s) => ipcRenderer.sendSync('state:set-sync', s),
   notify: (t, b) => ipcRenderer.send('app:notify', t, b),
   open: (u) => ipcRenderer.send('app:open', u),
+  settings: () => ipcRenderer.invoke('settings:get'),
+  setStartup: (on) => ipcRenderer.invoke('settings:startup', on),
+  onSaveNow: (f) => { ipcRenderer.on('app:save-now', () => f()); },
   copy: (t) => clipboard.writeText(t),
   paste: () => clipboard.readText(),
 });

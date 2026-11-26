@@ -1,6 +1,6 @@
 {
   "name": "swarmux",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A real Windows terminal for running a swarm of coding agents: tabs, split panes, agent presets, resume where they left off, and alerts when they finish.",
   "main": "src/main.js",
   "license": "MIT",

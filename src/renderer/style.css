@@ -10,7 +10,7 @@ button { font: inherit; color: inherit; }
 body { display: grid; grid-template-rows: 40px 1fr 24px; }
 
 /* title bar */
-.bar { display: flex; align-items: center; gap: 6px; padding-left: 12px; padding-right: 140px; -webkit-app-region: drag; border-bottom: 1px solid var(--line); background: var(--bg); }
+.bar { display: flex; align-items: flex-end; gap: 2px; padding-left: 8px; padding-right: 140px; padding-top: 6px; -webkit-app-region: drag; border-bottom: 1px solid var(--line); background: var(--bg); }
 .bar > * { -webkit-app-region: no-drag; }
 .bar .drag { flex: 1; align-self: stretch; -webkit-app-region: drag; }
 .logo { display: flex; align-items: center; gap: 8px; margin-right: 8px; color: var(--fg); letter-spacing: .08em; font-size: 12px; -webkit-app-region: drag; }
@@ -87,3 +87,39 @@ body { display: grid; grid-template-rows: 40px 1fr 24px; }
 .find input { width: 220px; border: 0; background: transparent; color: var(--fg); font: inherit; outline: none; }
 .find span { color: var(--fg3); font-size: 11px; }
 [hidden] { display: none !important; }
+
+/* Windows Terminal style tab strip */
+.bar { border-bottom: 0; background: #0b0c0e; }
+.tabs { align-items: flex-end; gap: 1px; }
+.tab { height: 34px; min-width: 120px; max-width: 240px; gap: 8px; padding: 0 6px 0 12px; border-radius: 8px 8px 0 0; color: var(--fg2); font-size: 12.5px; }
+.tab[aria-selected="true"] { background: var(--panel); box-shadow: none; color: var(--fg); }
+.tab .t { flex: 1; text-align: left; }
+.tab .pi { flex: none; width: 16px; height: 16px; display: grid; place-items: center; }
+.tab .dot { width: 6px; height: 6px; }
+.tab .x { opacity: .55; width: 22px; height: 22px; border-radius: 6px; }
+.new { align-self: center; padding-bottom: 2px; }
+.new .ib { height: 28px; border-radius: 6px; }
+body { grid-template-rows: 40px 1fr 22px; }
+#stage { background: var(--panel); }
+.ws { padding: 4px; }
+.menu { min-width: 280px; padding: 4px; border-radius: 10px; background: #202225; border-color: #33373c; }
+.menu button { padding: 8px 10px; border-radius: 6px; font-size: 13px; }
+.menu .pi { width: 18px; display: grid; place-items: center; }
+.menu .k { font-family: var(--sans); color: var(--fg3); font-size: 11.5px; }
+.menu hr { margin: 4px 6px; border: 0; border-top: 1px solid #33373c; }
+.menu b { font-weight: 600; }
+.palette { position: fixed; z-index: 70; top: 60px; left: 50%; width: min(560px, 92vw); transform: translateX(-50%); border: 1px solid #33373c; border-radius: 12px; background: #1c1e21; box-shadow: 0 30px 80px -20px rgba(0,0,0,.85); overflow: hidden; }
+.palette input { width: 100%; padding: 14px 16px; border: 0; border-bottom: 1px solid #33373c; background: transparent; color: var(--fg); font: 14px var(--sans); outline: none; }
+.pal-list { max-height: 360px; overflow: auto; padding: 4px; }
+.pal-list div { display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
+.pal-list div[aria-selected="true"], .pal-list div:hover { background: var(--raised); }
+.pal-list small { color: var(--fg3); }
+.sheet { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: rgba(0,0,0,.55); }
+.sheet-in { width: min(560px, 92vw); padding: 20px 22px; border: 1px solid #33373c; border-radius: 14px; background: #1c1e21; }
+.sheet-in header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.sheet-in header div { flex: 1; } .sheet-in h2 { margin: 0; font-size: 16px; } .sheet-in header p { margin: 2px 0 0; color: var(--fg3); font-size: 12px; }
+.srow { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+.srow span { display: grid; gap: 2px; } .srow small { color: var(--fg3); }
+.srow select, .srow input[type=number] { padding: 5px 8px; border: 1px solid var(--line2); border-radius: 6px; background: var(--bg); color: var(--fg); font: inherit; }
+.srow input[type=checkbox] { width: 18px; height: 18px; accent-color: #3DF28C; }
+.about { margin: 14px 0 0; color: var(--fg3); font-size: 12px; } .about a { color: var(--accent); }

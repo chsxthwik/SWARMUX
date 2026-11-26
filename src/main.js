@@ -1,6 +1,6 @@
 'use strict';
 // SWARMUX main process: windows, real ConPTY shells (node-pty), settings and notifications.
-const { app, BrowserWindow, ipcMain, Notification, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, Notification, shell, Menu, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -26,7 +26,25 @@ function detectProfiles() {
   if (pwsh) out.push({ id: 'pwsh', name: 'PowerShell 7', kind: 'shell', file: pwsh, args: ['-NoLogo'] });
   out.push({ id: 'powershell', name: 'Windows PowerShell', kind: 'shell', file: 'powershell.exe', args: ['-NoLogo'] });
   out.push({ id: 'cmd', name: 'Command Prompt', kind: 'shell', file: 'cmd.exe', args: [] });
-  if (which('wsl.exe')) out.push({ id: 'wsl', name: 'WSL', kind: 'shell', file: 'wsl.exe', args: ['~'] });
+  if (which('wsl.exe')) {
+    // One profile per installed Linux distribution (wsl -l -q prints UTF-16).
+    let distros = [];
+    try { distros = execFileSync('wsl.exe', ['-l', '-q'], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }).toString('utf16le').replace(/\0/g, '').split(/\r?\n/).map(x => x.trim()).filter(x => x && !/^docker-desktop/i.test(x)); } catch {}
+    if (!distros.length) out.push({ id: 'wsl', name: 'WSL', kind: 'shell', file: 'wsl.exe', args: ['~'] });
+    for (const d of distros) out.push({ id: 'wsl:' + d, name: d.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), kind: 'shell', file: 'wsl.exe', args: ['-d', d, '--cd', '~'] });
+    // Agents installed inside each distribution run there, in your Linux home.
+    for (const d of distros) {
+      const LOGIN = 'S=$(getent passwd "$(id -un)" | cut -d: -f7); S=${S:-/bin/bash}; exec "$S" -lic ';
+      let found = '';
+      try { found = execFileSync('wsl.exe', ['-d', d, '--exec', 'sh', '-c', LOGIN + `'for c in claude codex opencode gemini; do command -v "$c" >/dev/null 2>&1 && echo "$c"; done' 2>/dev/null`], { windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'], timeout: 15000, encoding: 'utf8' }); } catch (e) { found = (e.stdout || '').toString(); }
+      const nice = d.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      const AG = { claude: ['Claude Code', 'claude --continue || claude'], codex: ['Codex', 'codex resume --last || codex'], opencode: ['OpenCode', 'opencode --continue || opencode'], gemini: ['Gemini CLI', 'gemini'] };
+      for (const c of found.split(/\s+/).filter(x => AG[x])) {
+        const run = (cmd) => ['-d', d, '--cd', '~', '--exec', 'sh', '-c', LOGIN + `'${cmd}; exec "$SHELL" -l'`];
+        out.push({ id: `${c}@${d}`, name: `${AG[c][0]} (${nice})`, kind: 'agent', file: 'wsl.exe', args: run(c), resumeArgs: run(AG[c][1]) });
+      }
+    }
+  }
   const gitBash = ['C:\\Program Files\\Git\\bin\\bash.exe', 'C:\\Program Files (x86)\\Git\\bin\\bash.exe'].find(p => fs.existsSync(p));
   if (gitBash) out.push({ id: 'gitbash', name: 'Git Bash', kind: 'shell', file: gitBash, args: ['--login', '-i'] });
   const host = pwsh ? { file: pwsh, args: ['-NoLogo', '-NoExit', '-Command'] } : { file: 'powershell.exe', args: ['-NoLogo', '-NoExit', '-Command'] };
@@ -57,7 +75,7 @@ function createWindow() {
   win.once('ready-to-show', () => win.show());
   // Dev check: SWARMUX_SHOT=<file.png> captures the window after start-up, then quits.
   if (process.env.SWARMUX_SHOT) win.webContents.once('did-finish-load', () => setTimeout(async () => {
-    try { if (process.env.SWARMUX_KEYS) for (const k of process.env.SWARMUX_KEYS.split(',')) { const [mods, key] = k.includes('+') ? [k.split('+').slice(0, -1).map(m => m.toLowerCase()), k.split('+').pop()] : [[], k]; win.webContents.sendInputEvent({ type: 'keyDown', keyCode: key, modifiers: mods }); win.webContents.sendInputEvent({ type: 'keyUp', keyCode: key, modifiers: mods }); await new Promise(r => setTimeout(r, 900)); }
+    try { if (process.env.SWARMUX_KEYS) for (const k of process.env.SWARMUX_KEYS.split(',').filter(Boolean)) { const [mods, key] = k.includes('+') ? [k.split('+').slice(0, -1).map(m => m.toLowerCase()), k.split('+').pop()] : [[], k]; win.webContents.sendInputEvent({ type: 'keyDown', keyCode: key, modifiers: mods }); win.webContents.sendInputEvent({ type: 'keyUp', keyCode: key, modifiers: mods }); await new Promise(r => setTimeout(r, 900)); }
       await new Promise(r => setTimeout(r, 2500));
       fs.writeFileSync(process.env.SWARMUX_SHOT, (await win.webContents.capturePage()).toPNG()); } catch (e) { console.error(e); }
     win.close();
@@ -104,7 +122,7 @@ ipcMain.handle('pty:create', (e, { id, profileId, cwd, cols, rows, resume }) => 
     ptys.delete(id);
     if (!sender.isDestroyed()) sender.send('pty:exit', id, exitCode);
   });
-  return { ok: true, name: prof.name, kind: prof.kind, cwd: dir, pid: proc.pid };
+  return { ok: true, name: prof.name, kind: prof.kind, cwd: prof.file === 'wsl.exe' ? '~' : dir, pid: proc.pid };
 });
 ipcMain.on('pty:write', (_e, id, data) => { const p = ptys.get(id); if (p) try { p.proc.write(data); } catch {} });
 ipcMain.on('pty:resize', (_e, id, cols, rows) => { const p = ptys.get(id); if (p && cols > 1 && rows > 1) try { p.proc.resize(cols | 0, rows | 0); } catch {} });
@@ -121,12 +139,23 @@ ipcMain.on('app:notify', (_e, title, body) => {
   n.show();
   if (win && !win.isFocused()) win.flashFrame(true);
 });
+ipcMain.handle('settings:get', () => { const st = readState(); return { startup: app.isPackaged ? app.getLoginItemSettings().openAtLogin : !!st.startup, version: app.getVersion() }; });
+ipcMain.handle('settings:startup', (_e, on) => { const st = readState(); st.startup = !!on; st.startupSet = true; writeState(st); if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: !!on, args: ['--restore'] }); return !!on; });
 ipcMain.on('app:open', (_e, url) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); });
 
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
   PROFILES = detectProfiles();
+  // Opens with Windows by default (turn off in Settings), so a restart brings your tabs and agents back.
+  const st = readState();
+  if (app.isPackaged && !st.startupSet) { app.setLoginItemSettings({ openAtLogin: true, args: ['--restore'] }); st.startupSet = true; st.startup = true; writeState(st); }
   createWindow();
+  // Windows shutdown or sign-out: save terminal contents before the session ends.
+  const flush = () => { try { if (win && !win.isDestroyed()) win.webContents.send('app:save-now'); } catch {} };
+  powerMonitor.on('shutdown', flush);
+  powerMonitor.on('suspend', flush);
+  powerMonitor.on('lock-screen', flush);
 });
 app.on('window-all-closed', () => app.quit());
+app.on('session-end', () => { try { if (win && !win.isDestroyed()) win.webContents.send('app:save-now'); } catch {} });

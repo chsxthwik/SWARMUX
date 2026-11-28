@@ -117,13 +117,13 @@ pub struct TextViewState {
     pub(super) table_actions: Option<std::sync::Arc<TableActionsFn>>,
     pub(super) image_source: Option<std::sync::Arc<super::text_view::ImageSourceFn>>,
     pub(super) link_click_handler: Option<std::sync::Arc<LinkClickHandlerFn>>,
-    // HERDR: only views with a selection handler build reports.
+    // PATCH: only views with a selection handler build reports.
     reports_selection: bool,
-    /// HERDR: a selection settled or was cleared since the last paint.
+    /// PATCH: a selection settled or was cleared since the last paint.
     pub(super) selection_report_pending: bool,
-    /// HERDR: whether the last report was a selection, so clearing it is reported.
+    /// PATCH: whether the last report was a selection, so clearing it is reported.
     reported_selection: bool,
-    /// HERDR: the source highlights last applied, and the revision they were mapped at.
+    /// PATCH: the source highlights last applied, and the revision they were mapped at.
     applied_source_highlights: Option<(usize, Vec<(Range<usize>, gpui::Hsla)>)>,
     pub(super) markdown_extensions: Arc<MarkdownExtensions>,
 
@@ -674,7 +674,7 @@ impl TextViewState {
         Ok(())
     }
 
-    /// HERDR: maps highlights given as Markdown source ranges onto the
+    /// PATCH: maps highlights given as Markdown source ranges onto the
     /// rendered text and applies them, only when they or the text changed.
     pub(super) fn apply_source_highlights(
         &mut self,
@@ -890,7 +890,7 @@ impl TextViewState {
     }
 
     pub(super) fn reset_selection(&mut self) {
-        // HERDR: a programmatic reset clears any selection the handler saw.
+        // PATCH: a programmatic reset clears any selection the handler saw.
         if self.reported_selection {
             self.mark_selection_for_report();
         }
@@ -931,7 +931,7 @@ impl TextViewState {
         self.selected_text_override = None;
         self.select_all = true;
         self.is_selecting = false;
-        // HERDR: select-all settles at once.
+        // PATCH: select-all settles at once.
         self.mark_selection_for_report();
         self.auto_scroll.stop();
         self.selection_adapter.set_local_selection(true, cx);
@@ -956,7 +956,7 @@ impl TextViewState {
         self.selected_text_override = Some(selected_text);
         self.select_all = false;
         self.is_selecting = false;
-        // HERDR: report the word or paragraph once it has painted.
+        // PATCH: report the word or paragraph once it has painted.
         self.mark_selection_for_report();
         self.auto_scroll.stop();
         self.selection_adapter.set_local_selection(true, cx);
@@ -1022,7 +1022,7 @@ impl TextViewState {
         self.select_all
     }
 
-    // HERDR: attach or detach selection reporting with the handler.
+    // PATCH: attach or detach selection reporting with the handler.
     pub(super) fn set_selection_reporting(&mut self, enabled: bool) {
         self.reports_selection = enabled;
         if !enabled {
@@ -1031,12 +1031,12 @@ impl TextViewState {
         }
     }
 
-    // HERDR: queue a report for this view's next paint.
+    // PATCH: queue a report for this view's next paint.
     pub(super) fn mark_selection_for_report(&mut self) {
         self.selection_report_pending = self.reports_selection;
     }
 
-    /// HERDR: the settled selection to report, once painting has resolved it
+    /// PATCH: the settled selection to report, once painting has resolved it
     /// (a double or triple click is only turned into a range while its text
     /// paints). `None` when there is nothing new to report, `Some(None)` when
     /// a reported selection was cleared.

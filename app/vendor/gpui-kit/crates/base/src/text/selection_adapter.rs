@@ -82,7 +82,7 @@ impl VirtualBlockSelection {
 #[derive(Clone)]
 pub(super) struct TextViewSelectionAdapter {
     selection: TextSelectionHandle,
-    // HERDR: selection endpoints shared with the clipboard callback.
+    // PATCH: selection endpoints shared with the clipboard callback.
     virtual_blocks: Rc<RefCell<VirtualBlockSelection>>,
     /// What the view's text painted this frame, shared by the adapter's
     /// clones. Inlines report it as they paint, through a read of the view's
@@ -124,7 +124,7 @@ impl TextViewSelectionAdapter {
                             let was_selecting = state.is_selecting;
                             state.is_selecting =
                                 snapshot.is_some_and(|snapshot| snapshot.is_selecting());
-                            // HERDR: report a drag once it ends, and a clear.
+                            // PATCH: report a drag once it ends, and a clear.
                             if (was_selecting && !state.is_selecting) || snapshot.is_none() {
                                 state.mark_selection_for_report();
                             }
@@ -170,7 +170,7 @@ impl TextViewSelectionAdapter {
                     return String::new();
                 };
                 let state = view.read(cx);
-                // HERDR: use the same block bounds for selection reports and copy.
+                // PATCH: use the same block bounds for selection reports and copy.
                 state.selection_adapter.selected_text(state)
             },
             cx,
@@ -292,7 +292,7 @@ impl TextViewSelectionAdapter {
         Some((points.anchor(), points.cursor()))
     }
 
-    // HERDR: the text this view contributes to a copy.
+    // PATCH: the text this view contributes to a copy.
     pub(super) fn selected_text(&self, state: &TextViewState) -> String {
         let last = state.parsed_content.document.blocks.len().saturating_sub(1);
         let blocks = self

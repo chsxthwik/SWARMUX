@@ -501,9 +501,7 @@ export default class Welcome extends View {
           .border_color(t.border)
           .child(image("frame/welcome/swarmux.png").w(24).h(24).rounded(6).flex_none())
           .child(div().text_size(14).font_semibold().text_color(t.foreground).child("Welcome to SWARMUX"))
-          .child(div().px(6).py(0.5).rounded(5).border_1().border_color(t.input).text_color(t.muted).text_size(10.5).font_semibold().child("BETA"))
           .child(div().flex_1())
-          .child(div().text_size(11.5).text_color(t.dim).child("Drag to move"))
           .child(
             div()
               .id("w-close")

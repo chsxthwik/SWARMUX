@@ -1,5 +1,5 @@
 #![cfg(target_os = "macos")]
-// HERDR: a vendored copy; upstream builds it with its own lint settings.
+// PATCH: a vendored copy; upstream builds it with its own lint settings.
 #![allow(deprecated, unexpected_cfgs)]
 //! macOS platform implementation for GPUI.
 //!

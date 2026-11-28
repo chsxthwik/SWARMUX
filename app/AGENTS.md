@@ -1,8 +1,7 @@
 # SWARMUX app
 
 The SWARMUX 2 desktop app (`swarmux`): a native GPUI client of
-swarmux-core (`../core`). QUANTUM (`chsxthwik`) maintains it. Based on
-herdr (Apache-2.0); see `NOTICE` at the repo root.
+swarmux-core (`../core`). QUANTUM (`chsxthwik`) maintains it.
 
 If AGENTS.local.md exists, read it too: the maintainer's local rules.
 

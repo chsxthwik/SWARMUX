@@ -246,7 +246,7 @@ impl PartialEq for MarkdownNode {
 pub struct MarkdownExtensions {
     enable_mdx: bool,
     enable_frontmatter: bool,
-    /// HERDR: `raw_html(false)` keeps raw HTML as text.
+    /// PATCH: `raw_html(false)` keeps raw HTML as text.
     disable_raw_html: bool,
     block_parsers: Vec<Arc<MarkdownBlockParserFn>>,
     block_renderers: HashMap<SharedString, Arc<MarkdownBlockRenderFn>>,
@@ -297,7 +297,7 @@ impl MarkdownExtensions {
         self
     }
 
-    // HERDR: keep HTML in the AST so its contents never become Markdown.
+    // PATCH: keep HTML in the AST so its contents never become Markdown.
     pub(super) fn renders_raw_html(&self) -> bool {
         !self.disable_raw_html
     }

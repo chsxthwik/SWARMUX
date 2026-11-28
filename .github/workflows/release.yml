@@ -1,0 +1,209 @@
+# A release: push a tag `v<version>` matching app/Cargo.toml.
+# Builds the core (Linux x86_64/aarch64, Windows x86_64) and the app
+# (Windows x86_64, Linux x86_64), attaches them to a GitHub Release, then
+# publishes the update feed on GitHub Pages (gh-pages branch):
+#   app/latest.json, app/<v>/manifest.json, app/<v>/changelog.md,
+#   core/latest.json, core/<v>/manifest.json, and both install scripts.
+# The feed is written last, so nobody sees a version whose files aren't up.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  RUST_TOOLCHAIN: 1.95.0
+  ZIG_VERSION: 0.16.0
+  SITE: https://chsxthwik.github.io/SWARMUX
+
+jobs:
+  core:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { name: linux-x86_64, target: x86_64-unknown-linux-musl, runner: ubuntu-latest }
+          - { name: linux-aarch64, target: aarch64-unknown-linux-musl, runner: ubuntu-22.04-arm }
+          - { name: windows-x86_64, target: x86_64-pc-windows-msvc, runner: windows-2022 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 75
+    defaults:
+      run:
+        shell: bash
+        working-directory: core
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: ${{ matrix.target }}
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }} -p swarmux-core
+      - name: Pack
+        if: runner.os != 'Windows'
+        run: |
+          bin=target/${{ matrix.target }}/release/swarmux-core
+          "$bin" --version
+          file "$bin" | grep -q 'static' || { file "$bin"; echo "not static"; exit 1; }
+          mkdir -p dist
+          sh scripts/package "$bin" dist/swarmux-core-${{ matrix.name }}.tar.gz
+      - name: Pack (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $bin = "target/${{ matrix.target }}/release/swarmux-core.exe"
+          & $bin --version
+          if ($LASTEXITCODE) { throw "it does not run" }
+          $text = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($bin)).ToLower()
+          foreach ($dll in "vcruntime140", "msvcp140", "api-ms-win-crt-") { if ($text.Contains($dll)) { throw "swarmux-core.exe imports $dll" } }
+          New-Item -ItemType Directory -Force stage/THIRD-PARTY-NOTICES, dist | Out-Null
+          Copy-Item $bin stage/
+          Copy-Item LICENSE stage/
+          Copy-Item crates/swarmux-core/THIRD-PARTY-NOTICES stage/THIRD-PARTY-NOTICES/swarmux-core.txt
+          scripts/fetch-conpty.ps1 -Dest stage
+          Copy-Item distribution/windows/* stage/THIRD-PARTY-NOTICES/
+          tar -a -cf dist/swarmux-core-${{ matrix.name }}.zip -C stage swarmux-core.exe conpty LICENSE THIRD-PARTY-NOTICES
+          if ($LASTEXITCODE) { throw "zip failed" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swarmux-core-${{ matrix.name }}
+          path: core/dist/swarmux-core-${{ matrix.name }}.*
+          if-no-files-found: error
+          retention-days: 7
+
+  app:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { target: windows-x86_64, runner: windows-2022 }
+          - { target: linux-x86_64, runner: ubuntu-22.04 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: ${{ env.ZIG_VERSION }}
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        run: |
+          scripts/ci-apt \
+            pkg-config clang libclang-dev \
+            libxcb1-dev libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev \
+            libvulkan-dev libfontconfig-dev libfreetype-dev
+      - name: Windows build dependencies
+        if: runner.os == 'Windows'
+        run: echo "LIBCLANG_PATH=C:\\Program Files\\LLVM\\bin" >> "$GITHUB_ENV"
+      - name: Version matches the tag
+        if: github.ref_type == 'tag'
+        run: |
+          want="v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          [ "$want" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME but app/Cargo.toml says $want"; exit 1; }
+      - name: Build and pack
+        run: scripts/package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: swarmux-${{ matrix.target }}
+          path: app/dist/swarmux-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [core, app]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -la dist
+          notes=$(awk '/^## \[/{n++} n==1' app/CHANGELOG.md | tail -n +2)
+          gh release create "$GITHUB_REF_NAME" dist/* --title "SWARMUX ${GITHUB_REF_NAME#v}" --notes "$notes" --latest
+      - name: Update feed
+        run: |
+          app=$(sed -n 's/^version = "\(.*\)"/\1/p' app/Cargo.toml | head -1)
+          core=$(sed -n 's/^version = "\(.*\)"/\1/p' core/crates/swarmux-core/Cargo.toml | head -1)
+          core_min=$(tr -d '[:space:]' < app/distribution/core-version)
+          generation=$(sed -n 's/^pub const GENERATION: u32 = \([0-9]*\);/\1/p' core/crates/swarmux-core/src/api.rs)
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}"
+          git fetch origin gh-pages:gh-pages 2>/dev/null || true
+          if git show-ref --quiet refs/heads/gh-pages; then
+            git worktree add site gh-pages
+          else
+            git worktree add --detach site && (cd site && git checkout --orphan gh-pages && git rm -rfq . )
+          fi
+          python3 - "$app" "$core" "$core_min" "$generation" "$base" <<'PY'
+          import hashlib, json, pathlib, shutil, sys
+          app, core, core_min, generation, base = sys.argv[1:]
+          dist, site = pathlib.Path("dist"), pathlib.Path("site")
+          def targets(prefix, exts):
+              out = {}
+              for f in sorted(dist.iterdir()):
+                  for ext in exts:
+                      if f.name.startswith(prefix) and f.name.endswith(ext):
+                          name = f.name[len(prefix):-len(ext)]
+                          out[name] = {"url": f"{base}/{f.name}", "sha256": hashlib.sha256(f.read_bytes()).hexdigest()}
+              return out
+          a = {"version": app, "core_min": core_min, "notes": f"SWARMUX {app}", "targets": targets("swarmux-", [".tar.gz"])}
+          c = {"version": core, "generation": int(generation), "notes": f"swarmux-core {core}", "targets": targets("swarmux-core-", [".tar.gz", ".zip"])}
+          a["targets"] = {k: v for k, v in a["targets"].items() if not k.startswith("core-")}
+          assert a["targets"] and c["targets"], (a, c)
+          for kind, doc, version in (("app", a, app), ("core", c, core)):
+              d = site / kind / version
+              d.mkdir(parents=True, exist_ok=True)
+              (d / "manifest.json").write_text(json.dumps(doc, indent=2) + "\n")
+          shutil.copy("app/CHANGELOG.md", site / "app" / app / "changelog.md")
+          shutil.copy("app/distribution/install.sh", site / "app" / "install.sh")
+          shutil.copy("app/distribution/install.ps1", site / "app" / "install.ps1")
+          shutil.copy("core/distribution/install.sh", site / "core" / "install.sh")
+          shutil.copy("core/distribution/install.ps1", site / "core" / "install.ps1")
+          # latest.json last: the versioned files are already in place.
+          (site / "app" / "latest.json").write_text(json.dumps(a, indent=2) + "\n")
+          (site / "core" / "latest.json").write_text(json.dumps(c, indent=2) + "\n")
+          (site / ".nojekyll").write_text("")
+          (site / "index.html").write_text('<!doctype html><meta charset="utf-8"><title>SWARMUX</title><meta http-equiv="refresh" content="0; url=https://github.com/chsxthwik/SWARMUX">')
+          print(json.dumps({"app": a, "core": c}, indent=2))
+          PY
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "release ${GITHUB_REF_NAME}"
+          git push origin gh-pages

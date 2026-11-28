@@ -556,7 +556,7 @@ QuadVertexOutput quad_vertex(uint vertex_id: SV_VertexID, uint instance_id: SV_I
     return output;
 }
 
-// HERDR: a quad with a solid background, no border and no rounding (most
+// PATCH: a quad with a solid background, no border and no rounding (most
 // backgrounds and panels). It skips `quad_fragment`, which WARP (software
 // D3D) runs in full for every pixel whatever branch the pixel takes.
 struct PlainQuadVertexOutput {

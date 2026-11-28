@@ -621,7 +621,7 @@ impl CosmicTextSystemState {
         let glyph_id: u16 = params.glyph_id.0.try_into()?;
         let pixels_per_em = (pixel_size * params.scale_factor) as u16;
 
-        // HERDR: Swash panics decoding alpha bitmaps with zero width or height.
+        // PATCH: Swash panics decoding alpha bitmaps with zero width or height.
         if !params.is_emoji
             && alpha_bitmap(font_ref, glyph_id, pixels_per_em).is_some_and(|bitmap| {
                 bitmap.pixels_per_em == pixels_per_em && (bitmap.width == 0 || bitmap.height == 0)

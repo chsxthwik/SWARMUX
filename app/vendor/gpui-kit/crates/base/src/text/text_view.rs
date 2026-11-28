@@ -99,7 +99,7 @@ pub(crate) type ImageSourceFn = dyn Fn(&gpui::SharedUri) -> gpui::ImageSource + 
 pub(crate) type LinkClickHandlerFn =
     dyn Fn(&SharedString, &ClickEvent, &mut Window, &mut App) + Send + Sync;
 
-/// HERDR: a selection a person finished making in a [`TextView`], as
+/// PATCH: a selection a person finished making in a [`TextView`], as
 /// [`TextView::on_selection_change`] reports it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextViewSelection {
@@ -427,7 +427,7 @@ impl TextView {
         self
     }
 
-    /// HERDR: paint `background` behind the text rendered from `range`, a
+    /// PATCH: paint `background` behind the text rendered from `range`, a
     /// byte range of the Markdown source, through
     /// [`TextViewState::set_range_highlights`]. Call once per range; later
     /// ones paint over earlier ones. Ranges that render nothing are skipped.
@@ -441,7 +441,7 @@ impl TextView {
         self
     }
 
-    /// HERDR: called when a selection settles (the pointer is released, or a
+    /// PATCH: called when a selection settles (the pointer is released, or a
     /// double or triple click selects a word or paragraph) with what was
     /// selected, and with `None` when a reported selection is cleared.
     pub fn on_selection_change<F>(mut self, handler: F) -> Self
@@ -494,7 +494,7 @@ impl TextView {
     /// Set whether raw HTML in Markdown renders as HTML (the default) or
     /// shows as the text it is written as. See [`MarkdownExtensions::raw_html`].
     ///
-    /// HERDR: backported API from gpui-kit #3979.
+    /// PATCH: backported API from gpui-kit #3979.
     pub fn markdown_raw_html(mut self, enabled: bool) -> Self {
         let extensions = Arc::make_mut(&mut self.markdown_extensions);
         *extensions = extensions.clone().raw_html(enabled);
@@ -751,7 +751,7 @@ impl Element for TextView {
                 state.set_motion(motion.clone());
             }
             state.selectable = self.selectable;
-            // HERDR: only track reports while a selection handler is attached.
+            // PATCH: only track reports while a selection handler is attached.
             state.set_selection_reporting(self.selection_change_handler.is_some());
             state.selection_format = self.selection_format;
             state.scrollable = self.scrollable;
@@ -913,7 +913,7 @@ impl Element for TextView {
         }
         GlobalState::global(cx).pop_text_view_state();
 
-        // HERDR: a multi-click becomes a range only as its text paints, so
+        // PATCH: a multi-click becomes a range only as its text paints, so
         // the selection is read after the document has painted.
         if let Some(handler) = &self.selection_change_handler
             && state.read(cx).selection_report_pending
@@ -3615,10 +3615,10 @@ mod tests {
     }
 }
 
-// HERDR: HTML paragraphs carry no source spans; two inline flows in one HTML
+// PATCH: HTML paragraphs carry no source spans; two inline flows in one HTML
 // block used to share an element id and panic in prepaint.
 #[cfg(test)]
-mod herdr_html_inline_flows {
+mod patched_html_inline_flows {
     use super::*;
     use gpui::{div, prelude::*, px, TestAppContext};
 

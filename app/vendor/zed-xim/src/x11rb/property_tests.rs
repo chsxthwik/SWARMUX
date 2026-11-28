@@ -23,7 +23,7 @@ fn queued_messages(append_during_drain: bool) {
     .check()
     .unwrap();
     let atom = conn
-        .intern_atom(false, b"_HERDR_XIM_DRAIN_TEST")
+        .intern_atom(false, b"_SWARMUX_XIM_DRAIN_TEST")
         .unwrap()
         .reply()
         .unwrap()

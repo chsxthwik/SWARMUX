@@ -665,7 +665,7 @@ struct MacWindowState {
     cursor_style: CursorStyle,
     cursor_visible: Arc<AtomicBool>,
     frame_source: Option<WindowFrameSource>,
-    // HERDR: an idle window stops its display link (`step`) and the frame
+    // PATCH: an idle window stops its display link (`step`) and the frame
     // waker starts it again, instead of waking every vsync for nothing.
     wake_source: Option<dispatch2::DispatchRetained<dispatch2::DispatchSource>>,
     woken: bool,
@@ -1396,7 +1396,7 @@ impl Drop for MacWindow {
         let window = this.native_window;
         let sheet_parent = this.sheet_parent.take();
         this.frame_source.take();
-        // HERDR: its context is the native view, which goes with the window.
+        // PATCH: its context is the native view, which goes with the window.
         if let Some(source) = this.wake_source.take() {
             source.cancel();
         }
@@ -2041,7 +2041,7 @@ impl PlatformWindow for MacWindow {
         self.0.as_ref().lock().request_frame_callback = Some(callback);
     }
 
-    // HERDR: GPUI calls this when the window needs a frame. It may run while
+    // PATCH: GPUI calls this when the window needs a frame. It may run while
     // the window state is locked, so it only signals; `wake_frames` runs on
     // the main queue and restarts the display link.
     fn frame_waker(&self) -> Option<Rc<dyn Fn()>> {
@@ -3363,7 +3363,7 @@ extern "C" fn step(view: *mut c_void) {
         });
         let mut lock = window_state.lock();
         lock.request_frame_callback = Some(callback);
-        // HERDR: a few vsyncs without a wake: nothing to draw. Every wake (a
+        // PATCH: a few vsyncs without a wake: nothing to draw. Every wake (a
         // notify, input, a timer) restarts it through the frame waker, so
         // waiting longer only wakes for nothing: a 10 fps spinner kept it
         // running at 120 Hz when this waited half a second.
@@ -3378,7 +3378,7 @@ extern "C" fn step(view: *mut c_void) {
     }
 }
 
-// HERDR: the window needs frames again.
+// PATCH: the window needs frames again.
 extern "C" fn wake_frames(view: *mut c_void) {
     let view = view as id;
     let window_state = unsafe { get_window_state(&*view) };

@@ -50,7 +50,7 @@ pub struct ShapedLine {
 }
 
 impl ShapedLine {
-    /// HERDR: Place terminal clusters at explicit cell boundaries. UI shaping is unchanged.
+    /// PATCH: Place terminal clusters at explicit cell boundaries. UI shaping is unchanged.
     pub fn with_cell_positions(mut self, positions: &[(usize, Pixels)], width: Pixels) -> Self {
         let layout = Arc::make_mut(&mut self.layout);
         let mut cluster = None;

@@ -2123,7 +2123,7 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for WaylandClientStatePtr {
                             let composing = compose.status() == xkb::Status::Composing;
                             state.compose_state = Some(compose);
                             if composing {
-                                // HERDR: a dead key's physical US key must not reach Kitty input.
+                                // PATCH: a dead key's physical US key must not reach Kitty input.
                                 state.repeat.current_id += 1;
                                 state.repeat.current_keycode = None;
                                 return;

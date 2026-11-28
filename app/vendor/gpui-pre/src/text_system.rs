@@ -529,12 +529,12 @@ impl TextSystem {
         padding_top + ascent
     }
 
-    /// HERDR: Unscaled metrics for terminal cell geometry.
+    /// PATCH: Unscaled metrics for terminal cell geometry.
     pub fn font_metrics(&self, font_id: FontId) -> FontMetrics {
         self.read_metrics(font_id, |metrics| *metrics)
     }
 
-    /// HERDR: OpenType data for terminal metrics, without changing UI metrics.
+    /// PATCH: OpenType data for terminal metrics, without changing UI metrics.
     pub fn font_table(&self, font_id: FontId, tag: [u8; 4]) -> Option<Arc<[u8]>> {
         if let Some(table) = self.font_tables.read().get(&(font_id, tag)) {
             return table.clone();

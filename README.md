@@ -50,6 +50,6 @@ Releases are built by [GitHub Actions](.github/workflows/release.yml) from tagge
 
 ## Credits and license
 
-SWARMUX is based on [herdr](https://github.com/herdrdev) and is licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for what was changed. SWARMUX is not affiliated with the herdr project.
+Licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE).
 
 Made by **QUANTUM**.

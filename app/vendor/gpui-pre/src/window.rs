@@ -1206,7 +1206,7 @@ pub struct Window {
     focused_text_input_active: bool,
     pub(crate) image_cache_stack: Vec<AnyImageCache>,
     pub(crate) rendered_frame: Frame,
-    // HERDR: distinguish an empty scene from a window that has not drawn yet.
+    // PATCH: distinguish an empty scene from a window that has not drawn yet.
     rendered_frame_size: Option<(Size<Pixels>, f32)>,
     pub(crate) next_frame: Frame,
     next_hitbox_id: HitboxId,
@@ -7639,7 +7639,7 @@ impl AnyWindowHandle {
     ) -> anyhow::Result<image::RgbaImage> {
         anyhow::ensure!(!draw_in_progress(), "cannot capture window image during draw");
 
-        // HERDR: separate update closures flush App effects between phases;
+        // PATCH: separate update closures flush App effects between phases;
         // two passes bound animation cascades; schedule/wake re-arms presentation
         // because draw() sets needs_present without calling present().
         for _ in 0..2 {

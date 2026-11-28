@@ -33,7 +33,7 @@ struct VirtualListScrollHandleState {
     /// Content bounds size (excluding padding and border) from the last frame.
     last_content_size: Option<Size<Pixels>>,
     pub deferred_scroll_to_item: Option<DeferredScrollToItem>,
-    // HERDR: `scroll_to_bottom` was asked for; the last row is known when the list is drawn.
+    // PATCH: `scroll_to_bottom` was asked for; the last row is known when the list is drawn.
     deferred_scroll_to_bottom: bool,
 }
 
@@ -125,7 +125,7 @@ impl VirtualListScrollHandle {
 
     /// Scrolls to the bottom of the list.
     pub fn scroll_to_bottom(&self) {
-        // HERDR: the last row is picked when the list is drawn, not here. The
+        // PATCH: the last row is picked when the list is drawn, not here. The
         // count kept here is the last frame's: zero before the first one, and
         // short by the rows the caller has just added.
         let mut state = self.state.borrow_mut();
@@ -645,7 +645,7 @@ impl Element for VirtualList {
         scroll_state.items_count = self.items_count;
         scroll_state.last_content_size = Some(content_bounds.size);
 
-        // HERDR: `scroll_to_bottom` lands on the last of the rows drawn now.
+        // PATCH: `scroll_to_bottom` lands on the last of the rows drawn now.
         if std::mem::take(&mut scroll_state.deferred_scroll_to_bottom) && self.items_count > 0 {
             scroll_state.deferred_scroll_to_item = Some(DeferredScrollToItem {
                 item_index: self.items_count - 1,

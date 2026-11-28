@@ -1,0 +1,19 @@
+{
+  "version": "2.0.0",
+  "generation": 1,
+  "notes": "swarmux-core 2.0.0",
+  "targets": {
+    "linux-aarch64": {
+      "url": "https://github.com/chsxthwik/SWARMUX/releases/download/v2.0.0/swarmux-core-linux-aarch64.tar.gz",
+      "sha256": "b81aed5e310bb28172bdd2f26fc36c0b97766bb7a293f1637d9ef9c7851fbcd0"
+    },
+    "linux-x86_64": {
+      "url": "https://github.com/chsxthwik/SWARMUX/releases/download/v2.0.0/swarmux-core-linux-x86_64.tar.gz",
+      "sha256": "d3540734478e149daa08e5db82aeacb02fb93782e646fa391086bd6918466a2f"
+    },
+    "windows-x86_64": {
+      "url": "https://github.com/chsxthwik/SWARMUX/releases/download/v2.0.0/swarmux-core-windows-x86_64.zip",
+      "sha256": "09576454c1985bda3b8e13cd5b263211e6cad380bb9583d5464eb5ede71b4769"
+    }
+  }
+}

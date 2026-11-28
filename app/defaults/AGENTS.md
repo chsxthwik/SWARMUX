@@ -479,14 +479,13 @@ the tabs also leave room for the window buttons when the sidebar is narrower.
 
 ### Layouts and mods other people made
 
-People share layouts at github.com/chsxthwik/SWARMUX/layouts and mods at github.com/chsxthwik/SWARMUX/mods. Each
+People share layouts and mods as folders on GitHub. Each
 is a folder laid out like this home: a layout has `layouts/<name>.json` and
 the `mods/<name>/` it needs; a mod is a piece for the person's own window,
 so it has only `mods/<name>/` and maybe a `keys.json` with the keys it
 expects. Both have a `RECIPE.md` (the brief to build it from scratch) and a
 `preview.png`. The files are one build of the recipe. Asked to add one
-(`github.com/chsxthwik/SWARMUX/layouts/<owner>/<name>`, `github.com/chsxthwik/SWARMUX/mods/<owner>/<name>`, or a
-folder on GitHub):
+(a folder on GitHub):
 
 1. Read the recipe and every file before writing anything. Before adding,
    tell the person if a mod reaches the network, runs programs (`exec`,
@@ -508,8 +507,7 @@ folder on GitHub):
 To share one: put that folder in a public GitHub repo (one folder each if
 there are several), write its `RECIPE.md`, save a screenshot of it as
 `preview.png` and add the repo topic `swarmux-layout` for a layout or
-`swarmux-mod` for a mod. It shows up at github.com/chsxthwik/SWARMUX/layouts or github.com/chsxthwik/SWARMUX/mods
-within the hour.
+`swarmux-mod` for a mod, so people can find it.
 
 A `RECIPE.md` is a brief: another agent with an empty folder builds the
 layout or mod from it. Write it from the real files, in this order:
@@ -707,7 +705,7 @@ The main ones:
 - App: `mod.clone {name, as?}` (duplicate; default `<name>-copy`), `mod.open {name}` (again: closes it), `overlay.close {id?}`, `app.help` (again: closes it), `app.palette` (again: closes it), `app.settings {section?}`
   (sections: `look`, `machines`, `alerts`, `updates`, `privacy`; Machines lists, updates, renames and removes ssh machines; settings edit the same files you do).
   `app.check_updates` (only a successful check reports Up to date; a failed check clears the checked time and can be retried), `app.update_core` (a newer swarmux-core of this generation, terminals kept;
-  never one a package manager owns), `app.welcome`, `app.whats_new`, `app.feedback {message?, from?}` (from `"person"` or `"agent"`; opens a review window, where the person can paste up to 3 screenshots; never sends until the person clicks Send), `app.reset`,
+  never one a package manager owns), `app.welcome`, `app.whats_new`, `app.feedback {message?, from?}` (from `"person"` or `"agent"`; opens a review window, where the person can paste up to 3 screenshots; nothing leaves the machine until the person opens it on GitHub and submits the issue), `app.reset`,
   `app.theme {name}`, `app.zoom_in`, `app.zoom_out`, `app.zoom_reset`,
   `app.update` (restart into a downloaded update).
   Add machine lists all named ssh-config hosts in a scrollable list. Machines

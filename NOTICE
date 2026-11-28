@@ -1,0 +1,12 @@
+SWARMUX
+Copyright 2026 QUANTUM (chsxthwik)
+
+SWARMUX is based on herdr (https://github.com/herdrdev), by its authors,
+licensed under the Apache License, Version 2.0. The app (app/) is derived
+from herdr-app and the core (core/) from herdr-core. QUANTUM modified them:
+the product name and logo, release and update hosting, no telemetry, and
+feedback through GitHub issues. "herdr" and its logo belong to their owners;
+SWARMUX is not affiliated with or endorsed by the herdr project.
+
+Third-party components and their licenses are listed in
+app/THIRD-PARTY-NOTICES and core/crates/swarmux-core/THIRD-PARTY-NOTICES.

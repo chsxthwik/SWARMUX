@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-labelledby="title">
+  <title id="title">SWARMUX</title>
+  <rect x="40" y="40" width="944" height="944" rx="212" fill="#0b0d0e" stroke="#2a2e31" stroke-width="28"/>
+  <g transform="translate(0 32)"><path d="M212 340 L352 470 L212 600" fill="none" stroke="#3DF28C" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M430 576 H588" stroke="#3DF28C" stroke-width="56" stroke-linecap="round"/>
+  <circle cx="718" cy="304" r="68" fill="#3DF28C"/>
+  <circle cx="816" cy="490" r="52" fill="#3DF28C" fill-opacity="0.8"/>
+  <circle cx="702" cy="686" r="38" fill="#3DF28C" fill-opacity="0.55"/></g>
+</svg>

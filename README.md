@@ -1,71 +1,55 @@
-<p align="center"><img src="build/icon.png" width="96" alt="SWARMUX logo"></p>
+<p align="center"><img src="app/assets/icons/swarmux-ui-icon-clean.svg" width="112" alt="SWARMUX logo"></p>
 
-# SWARMUX
+<h1 align="center">SWARMUX</h1>
 
-A real Windows terminal for running many coding agents side by side. Tabs, split panes, session restore and alerts when a pane finishes. Light, fast and open source.
+<p align="center">A native, GPU-drawn home for your terminals and coding agents.<br>Spaces, tabs and splits that keep running when the window closes.</p>
 
-## Features
-
-- Real terminals through Windows ConPTY: PowerShell 7, Windows PowerShell, Command Prompt, WSL and Git Bash, with colours, vim, htop and full-screen apps.
-- A profile menu like Windows Terminal: every shell and WSL distribution with `Ctrl+Shift+1…9`, Settings (`Ctrl+,`) and a command palette (`Ctrl+Shift+P`).
-- Opens with Windows (on by default, switch it off in Settings), and saves your session on shutdown, sleep and lock, so a restart brings everything back.
-- Tabs and split panes; drag a divider to resize, double-click it to even it out.
-- Each pane shows its state: working (amber), finished (green), bell (red), ended (hollow). When a pane goes quiet after working and you are looking elsewhere, you get a Windows notification and the taskbar flashes.
-- Spaces: named groups of tabs, one per project or machine (`Ctrl+Shift+N` new, `Ctrl+Alt+Up/Down` switch, double-click to rename).
-- Sidebar (`Ctrl+Shift+S`) with your spaces and an Attention list of panes that need you, are working or just finished. Click one to jump to it.
-- Notices when a program is waiting on you (a yes/no or approval prompt, or a bell) and tells you, with an optional soft sound.
-- New tabs open in the focused terminal's folder (shells that report it through OSC 7 or OSC 9;9).
-- SSH machines from your SSH config appear as profiles.
-- Keeps terminals running when you close the window: SWARMUX stays in the tray until you quit it there.
-- Updates itself from GitHub releases (checked with SHA-512, installed when you quit); switch it off in Settings.
-- Broadcast mode types into every pane of a tab at once.
-- Picks up where you left off: tabs, splits, shells, folders and recent output come back on the next start.
-- GPU rendering, 20,000 lines of scrollback per pane, and output batched every 8 ms, so long sessions stay smooth.
+---
 
 ## Install
 
-Download `SWARMUX-Setup.exe` from the [latest release](https://github.com/chsxthwik/SWARMUX/releases/latest) and run it. You choose the folder; no admin rights needed. The installer is not code-signed yet, so if SmartScreen asks, choose **More info**, then **Run anyway**.
-
-## Run from source
-
-Needs Windows 10 or 11 and Node.js 20 or newer.
+**Windows** (PowerShell, x64, Windows 10 1803 or newer):
 
 ```powershell
-git clone https://github.com/chsxthwik/SWARMUX
-cd SWARMUX
-npm install
-npm start
+irm https://chsxthwik.github.io/SWARMUX/app/install.ps1 | iex
 ```
 
-Build the installer with `npm run dist`; it lands in `dist/`.
+**Linux** (x86_64 or ARM64, with a desktop session and Vulkan):
 
-## Shortcuts
+```sh
+curl -fsSL https://chsxthwik.github.io/SWARMUX/app/install.sh | sh
+```
 
-| Keys | Action |
-| --- | --- |
-| `Ctrl+Shift+T` | New tab |
-| `Ctrl+Shift+D` / `Ctrl+Shift+E` | Split right / down |
-| `Ctrl+Shift+W` | Close pane |
-| `Alt+Arrows` | Move between panes |
-| `Ctrl+Tab`, `Ctrl+1…9` | Switch tabs |
-| `Ctrl+Shift+Z` | Zoom pane |
-| `Ctrl+Shift+B` | Broadcast to all panes in the tab |
-| `Ctrl+Shift+F` | Find |
-| `Ctrl+C` (with selection), `Ctrl+V`, right-click | Copy and paste |
-| `Ctrl+=`, `Ctrl+-`, `Ctrl+0` | Font size |
-| `F2` | Rename tab |
-| `Ctrl+Shift+1…9` | New tab with a profile |
-| `Ctrl+Shift+P` | Command palette |
-| `Ctrl+Shift+S` | Sidebar |
-| `Ctrl+Shift+N` | New space |
-| `Ctrl+Alt+Up/Down` | Switch space |
-| `Ctrl+,` | Settings |
-| `F1` | All shortcuts |
+The installer puts the app in your user folder (no admin needed), adds it to the Start menu or your apps, and installs the core (`hc`) if it is missing. Updates download in the background and apply when you restart the app; your terminals keep running.
 
-## License
+## What you get
 
-MIT, by QUANTUM.
+- **Spaces, tabs and splits.** A space per project or machine; split any tab into terminals or panels.
+- **Agents at a glance.** Start Claude Code, Codex, OpenCode, pi and others from the + menu. Agents that report their status show as working, blocked, done or idle, with a sound and a notification when one needs you.
+- **Terminals that outlive the window.** They run in `swarmux-core`, so closing or updating the app never ends them. After a reboot, every pane comes back in its last folder.
+- **Other machines.** Add an SSH host or WSL distro and its spaces run there.
+- **Make it yours.** Themes, fonts, keys, layouts and JavaScript mods, all plain files that reload live.
+- **Private.** No telemetry, no account. It only goes online to check GitHub for updates.
 
-## Privacy
+## Repository
 
-No account, no telemetry, no server and no open network port. The only network request is the update check to GitHub, which you can turn off.
+| Folder | What it is |
+|---|---|
+| [`app/`](app) | The desktop app (`swarmux`): Rust + GPUI. [README](app/README.md) |
+| [`core/`](core) | The terminal runtime (`swarmux-core`, alias `hc`). [README](core/README.md) |
+
+Build from source with Rust 1.95 and Zig 0.16:
+
+```sh
+git clone --recurse-submodules https://github.com/chsxthwik/SWARMUX.git
+cd SWARMUX/core && cargo build --release
+cd ../app && cargo build --release
+```
+
+Releases are built by [GitHub Actions](.github/workflows/release.yml) from tagged source.
+
+## Credits and license
+
+SWARMUX is based on [herdr](https://github.com/herdrdev) and is licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for what was changed. SWARMUX is not affiliated with the herdr project.
+
+Made by **QUANTUM**.
